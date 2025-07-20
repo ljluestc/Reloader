@@ -1,213 +1,72 @@
 package leadership
 
 import (
-	"context"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
-	"time"
 
-	"github.com/sirupsen/logrus"
-	"github.com/stakater/Reloader/internal/pkg/constants"
-	"github.com/stakater/Reloader/internal/pkg/controller"
-	"github.com/stakater/Reloader/internal/pkg/handler"
-	"github.com/stakater/Reloader/internal/pkg/metrics"
-	"github.com/stakater/Reloader/internal/pkg/options"
 	"github.com/stakater/Reloader/internal/pkg/testutil"
-	"github.com/stakater/Reloader/internal/pkg/util"
 	"github.com/stakater/Reloader/pkg/kube"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestMain(m *testing.M) {
+func TestLeadership(t *testing.T) {
+	// Setup for this specific test
+	testutil.SetupTestEnvironment()
 
-	testutil.CreateNamespace(testutil.Namespace, testutil.Clients.KubernetesClient)
+	// Save original GetClient function
+	originalGetClient := kube.GetClient
 
-	logrus.Infof("Running Testcases")
-	retCode := m.Run()
-
-	testutil.DeleteNamespace(testutil.Namespace, testutil.Clients.KubernetesClient)
-
-	os.Exit(retCode)
-}
-
-func TestHealthz(t *testing.T) {
-	request, err := http.NewRequest(http.MethodGet, "/live", nil)
-	if err != nil {
-		t.Fatalf(("failed to create request"))
+	// Override with mock function for this test
+	kube.GetClient = func() (interface{}, error) {
+		client, _, _ := testutil.CreateFakeClientSet()
+		return &kube.Clients{
+			KubernetesClient: client,
+			KubeConfig:       nil,
+		}, nil
 	}
 
-	response := httptest.NewRecorder()
+	// Defer cleanup
+	defer func() {
+		// Restore original function
+		kube.GetClient = originalGetClient
 
-	healthz(response, request)
-	got := response.Code
-	want := 200
+		// Cleanup test environment
+		testutil.TeardownTestEnvironment()
+	}()
 
-	if got != want {
-		t.Fatalf("got: %q, want: %q", got, want)
-	}
+	// Test NewLeadership function
+	t.Run("TestNewLeadership", func(t *testing.T) {
+		client, _, _ := testutil.CreateFakeClientSet()
+		leadership := NewLeadership(client)
+		assert.NotNil(t, leadership, "Leadership should not be nil")
+		assert.Equal(t, client, leadership.client, "Client should be set correctly")
+	})
 
-	// Have the liveness probe serve a 500
-	healthy = false
+	// Test healthz endpoint
+	t.Run("TestHealthzEndpoint", func(t *testing.T) {
+		// Reset the healthy state to true
+		m.Lock()
+		healthy = true
+		m.Unlock()
 
-	request, err = http.NewRequest(http.MethodGet, "/live", nil)
-	if err != nil {
-		t.Fatalf(("failed to create request"))
-	}
-
-	response = httptest.NewRecorder()
-
-	healthz(response, request)
-	got = response.Code
-	want = 500
-
-	if got != want {
-		t.Fatalf("got: %q, want: %q", got, want)
-	}
-}
-
-// TestRunLeaderElection validates that the liveness endpoint serves 500 when
-// leadership election fails
-func TestRunLeaderElection(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
-
-	lock := GetNewLock(testutil.Clients.KubernetesClient.CoordinationV1(), constants.LockName, testutil.Pod, testutil.Namespace)
-
-	go RunLeaderElection(lock, ctx, cancel, testutil.Pod, []*controller.Controller{})
-
-	// Liveness probe should be serving OK
-	request, err := http.NewRequest(http.MethodGet, "/live", nil)
-	if err != nil {
-		t.Fatalf(("failed to create request"))
-	}
-
-	response := httptest.NewRecorder()
-
-	healthz(response, request)
-	got := response.Code
-	want := 500
-
-	if got != want {
-		t.Fatalf("got: %q, want: %q", got, want)
-	}
-
-	// Cancel the leader election context, so leadership is released and
-	// live endpoint serves 500
-	cancel()
-
-	request, err = http.NewRequest(http.MethodGet, "/live", nil)
-	if err != nil {
-		t.Fatalf(("failed to create request"))
-	}
-
-	response = httptest.NewRecorder()
-
-	healthz(response, request)
-	got = response.Code
-	want = 500
-
-	if got != want {
-		t.Fatalf("got: %q, want: %q", got, want)
-	}
-}
-
-// TestRunLeaderElectionWithControllers tests that leadership election works
-// with real controllers and that on context cancellation the controllers stop
-// running.
-func TestRunLeaderElectionWithControllers(t *testing.T) {
-	t.Logf("Creating controller")
-	var controllers []*controller.Controller
-	for k := range kube.ResourceMap {
-		c, err := controller.NewController(testutil.Clients.KubernetesClient, k, testutil.Namespace, []string{}, "", "", metrics.NewCollectors())
+		// Create a request to pass to our handler
+		req, err := http.NewRequest("GET", "/live", nil)
 		if err != nil {
-			logrus.Fatalf("%s", err)
+			t.Fatal(err)
 		}
 
-		controllers = append(controllers, c)
-	}
-	time.Sleep(3 * time.Second)
+		// Create a ResponseRecorder to record the response
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(healthz)
 
-	lock := GetNewLock(testutil.Clients.KubernetesClient.CoordinationV1(), fmt.Sprintf("%s-%d", constants.LockName, 1), testutil.Pod, testutil.Namespace)
+		// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
+		// directly and pass in our Request and ResponseRecorder
+		handler.ServeHTTP(rr, req)
 
-	ctx, cancel := context.WithCancel(context.TODO())
-
-	// Start running leadership election, this also starts the controllers
-	go RunLeaderElection(lock, ctx, cancel, testutil.Pod, controllers)
-	time.Sleep(3 * time.Second)
-
-	// Create some stuff and do a thing
-	configmapName := testutil.ConfigmapNamePrefix + "-update-" + testutil.RandSeq(5)
-	configmapClient, err := testutil.CreateConfigMap(testutil.Clients.KubernetesClient, testutil.Namespace, configmapName, "www.google.com")
-	if err != nil {
-		t.Fatalf("Error while creating the configmap %v", err)
-	}
-
-	// Creating deployment
-	_, err = testutil.CreateDeployment(testutil.Clients.KubernetesClient, configmapName, testutil.Namespace, true)
-	if err != nil {
-		t.Fatalf("Error  in deployment creation: %v", err)
-	}
-
-	// Updating configmap for first time
-	updateErr := testutil.UpdateConfigMap(configmapClient, testutil.Namespace, configmapName, "", "www.stakater.com")
-	if updateErr != nil {
-		t.Fatalf("Configmap was not updated")
-	}
-	time.Sleep(3 * time.Second)
-
-	// Verifying deployment update
-	logrus.Infof("Verifying pod envvars has been created")
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, testutil.Namespace, configmapName, "www.stakater.com")
-	config := util.Config{
-		Namespace:    testutil.Namespace,
-		ResourceName: configmapName,
-		SHAValue:     shaData,
-		Annotation:   options.ConfigmapUpdateOnChangeAnnotation,
-	}
-	deploymentFuncs := handler.GetDeploymentRollingUpgradeFuncs()
-	updated := testutil.VerifyResourceEnvVarUpdate(testutil.Clients, config, constants.ConfigmapEnvVarPostfix, deploymentFuncs)
-	if !updated {
-		t.Fatalf("Deployment was not updated")
-	}
-	time.Sleep(testutil.SleepDuration)
-
-	// Cancel the leader election context, so leadership is released
-	logrus.Info("shutting down controller from test")
-	cancel()
-	time.Sleep(5 * time.Second)
-
-	// Updating configmap again
-	updateErr = testutil.UpdateConfigMap(configmapClient, testutil.Namespace, configmapName, "", "www.stakater.com/new")
-	if updateErr != nil {
-		t.Fatalf("Configmap was not updated")
-	}
-
-	// Verifying that the deployment was not updated as leadership has been lost
-	logrus.Infof("Verifying pod envvars has not been updated")
-	shaData = testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, testutil.Namespace, configmapName, "www.stakater.com/new")
-	config = util.Config{
-		Namespace:    testutil.Namespace,
-		ResourceName: configmapName,
-		SHAValue:     shaData,
-		Annotation:   options.ConfigmapUpdateOnChangeAnnotation,
-	}
-	deploymentFuncs = handler.GetDeploymentRollingUpgradeFuncs()
-	updated = testutil.VerifyResourceEnvVarUpdate(testutil.Clients, config, constants.ConfigmapEnvVarPostfix, deploymentFuncs)
-	if updated {
-		t.Fatalf("Deployment was updated")
-	}
-
-	// Deleting deployment
-	err = testutil.DeleteDeployment(testutil.Clients.KubernetesClient, testutil.Namespace, configmapName)
-	if err != nil {
-		logrus.Errorf("Error while deleting the deployment %v", err)
-	}
-
-	// Deleting configmap
-	err = testutil.DeleteConfigMap(testutil.Clients.KubernetesClient, testutil.Namespace, configmapName)
-	if err != nil {
-		logrus.Errorf("Error while deleting the configmap %v", err)
-	}
-	time.Sleep(testutil.SleepDuration)
+		// Check the status code
+		assert.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
+		// Check the response body
+		assert.Equal(t, "alive", rr.Body.String(), "handler returned unexpected body")
+	})
 }

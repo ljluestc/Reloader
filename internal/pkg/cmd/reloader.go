@@ -202,11 +202,14 @@ func startReloader(cmd *cobra.Command, args []string) {
 
 	// Run leadership election
 	if options.EnableHA {
-		podName, podNamespace := getHAEnvs()
-		lock := leadership.GetNewLock(clientset.CoordinationV1(), constants.LockName, podName, podNamespace)
+		podName, _ := getHAEnvs() // Remove podNamespace, only use podName
+		lead := leadership.NewLeadership(clientset)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		go leadership.RunLeaderElection(lock, ctx, cancel, podName, controllers)
+		err := lead.RunLeaderElection(nil, ctx, cancel, podName, controllers)
+		if err != nil {
+			logrus.Fatal(err)
+		}
 	}
 
 	leadership.SetupLivenessEndpoint()

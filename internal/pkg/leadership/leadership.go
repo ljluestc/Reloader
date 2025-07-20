@@ -3,16 +3,16 @@ package leadership
 import (
 	"context"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stakater/Reloader/internal/pkg/controller"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
-
-	coordinationv1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
 )
 
 var (
@@ -21,21 +21,59 @@ var (
 	healthy bool = true
 )
 
-func GetNewLock(client coordinationv1.CoordinationV1Interface, lockName, podname, namespace string) *resourcelock.LeaseLock {
+type Leadership struct {
+	client kubernetes.Interface
+}
+
+func NewLeadership(client kubernetes.Interface) *Leadership {
+	return &Leadership{
+		client: client,
+	}
+}
+
+func (l *Leadership) GetNewLock() (*resourcelock.LeaseLock, error) {
+	// Get client configuration
+	podname := os.Getenv("POD_NAME")
+	if podname == "" {
+		podname = "reloader-unknown"
+		logrus.Warnf("POD_NAME env variable not set, using default: %s", podname)
+	}
+
+	namespace := os.Getenv("POD_NAMESPACE")
+	if namespace == "" {
+		namespace = "default"
+		logrus.Warnf("POD_NAMESPACE env variable not set, using default: %s", namespace)
+	}
+
+	lockName := "reloader-lock"
+
+	// Get coordination client
+	coordinationClient := l.client.CoordinationV1()
+
 	return &resourcelock.LeaseLock{
 		LeaseMeta: v1.ObjectMeta{
 			Name:      lockName,
 			Namespace: namespace,
 		},
-		Client: client,
+		Client: coordinationClient,
 		LockConfig: resourcelock.ResourceLockConfig{
 			Identity: podname,
 		},
-	}
+	}, nil
 }
 
-// runLeaderElection runs leadership election. If an instance of the controller is the leader and stops leading it will shutdown.
-func RunLeaderElection(lock *resourcelock.LeaseLock, ctx context.Context, cancel context.CancelFunc, id string, controllers []*controller.Controller) {
+// RunLeaderElection runs leadership election. If an instance of the controller is the leader and stops leading it will shutdown.
+func (l *Leadership) RunLeaderElection(err error, ctx context.Context, cancel context.CancelFunc, id string, controllers []*controller.Controller) error {
+	if err != nil {
+		return err
+	}
+
+	// Get lock
+	lock, err := l.GetNewLock()
+	if err != nil {
+		return err
+	}
+
 	// Construct channels for the controllers to use
 	var stopChannels []chan struct{}
 	for i := 0; i < len(controllers); i++ {
@@ -71,6 +109,8 @@ func RunLeaderElection(lock *resourcelock.LeaseLock, ctx context.Context, cancel
 			},
 		},
 	})
+
+	return nil
 }
 
 func runControllers(controllers []*controller.Controller, stopChannels []chan struct{}) {

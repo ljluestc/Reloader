@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
 	"testing"
 	"time"
@@ -18,74 +19,110 @@ import (
 	"github.com/stakater/Reloader/internal/pkg/util"
 	"github.com/stakater/Reloader/pkg/kube"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	patchtypes "k8s.io/apimachinery/pkg/types"
 	testclient "k8s.io/client-go/kubernetes/fake"
 )
 
+// RandSeq generates a random string of length n
+func RandSeq(n int) string {
+	letters := []rune("abcdefghijklmnopqrstuvwxyz")
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
+
 var (
+	ersConfigmapWithExcludeConfigMapAnnotation = corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ers-configmap-with-exclude",
+			Namespace: "testing",
+			Annotations: map[string]string{
+				"reloader.stakater.com/exclude": "true",
+			},
+		},
+		Data: map[string]string{"key": "value"},
+	}
+
 	clients = kube.Clients{KubernetesClient: testclient.NewSimpleClientset()}
 
-	arsNamespace                               = "test-handler-" + testutil.RandSeq(5)
-	arsConfigmapName                           = "testconfigmap-handler-" + testutil.RandSeq(5)
-	arsSecretName                              = "testsecret-handler-" + testutil.RandSeq(5)
-	arsProjectedConfigMapName                  = "testprojectedconfigmap-handler-" + testutil.RandSeq(5)
-	arsProjectedSecretName                     = "testprojectedsecret-handler-" + testutil.RandSeq(5)
-	arsConfigmapWithInitContainer              = "testconfigmapInitContainerhandler-" + testutil.RandSeq(5)
-	arsSecretWithInitContainer                 = "testsecretWithInitContainer-handler-" + testutil.RandSeq(5)
-	arsProjectedConfigMapWithInitContainer     = "testProjectedConfigMapWithInitContainer-handler" + testutil.RandSeq(5)
-	arsProjectedSecretWithInitContainer        = "testProjectedSecretWithInitContainer-handler" + testutil.RandSeq(5)
-	arsConfigmapWithInitEnv                    = "configmapWithInitEnv-" + testutil.RandSeq(5)
-	arsSecretWithInitEnv                       = "secretWithInitEnv-handler-" + testutil.RandSeq(5)
-	arsConfigmapWithEnvName                    = "testconfigmapWithEnv-handler-" + testutil.RandSeq(5)
-	arsConfigmapWithEnvFromName                = "testconfigmapWithEnvFrom-handler-" + testutil.RandSeq(5)
-	arsSecretWithEnvName                       = "testsecretWithEnv-handler-" + testutil.RandSeq(5)
-	arsSecretWithEnvFromName                   = "testsecretWithEnvFrom-handler-" + testutil.RandSeq(5)
-	arsConfigmapWithPodAnnotations             = "testconfigmapPodAnnotations-handler-" + testutil.RandSeq(5)
-	arsConfigmapWithBothAnnotations            = "testconfigmapBothAnnotations-handler-" + testutil.RandSeq(5)
-	arsConfigmapAnnotated                      = "testconfigmapAnnotated-handler-" + testutil.RandSeq(5)
-	arsConfigMapWithNonAnnotatedDeployment     = "testconfigmapNonAnnotatedDeployment-handler-" + testutil.RandSeq(5)
-	arsSecretWithSecretAutoAnnotation          = "testsecretwithsecretautoannotationdeployment-handler-" + testutil.RandSeq(5)
-	arsConfigmapWithConfigMapAutoAnnotation    = "testconfigmapwithconfigmapautoannotationdeployment-handler-" + testutil.RandSeq(5)
-	arsSecretWithExcludeSecretAnnotation       = "testsecretwithsecretexcludeannotationdeployment-handler-" + testutil.RandSeq(5)
-	arsConfigmapWithExcludeConfigMapAnnotation = "testconfigmapwithconfigmapexcludeannotationdeployment-handler-" + testutil.RandSeq(5)
-	arsConfigmapWithIgnoreAnnotation           = "testconfigmapWithIgnoreAnnotation-handler-" + testutil.RandSeq(5)
-	arsSecretWithIgnoreAnnotation              = "testsecretWithIgnoreAnnotation-handler-" + testutil.RandSeq(5)
+	arsNamespace                               = "test-handler-" + RandSeq(5)
+	arsConfigmapName                           = "testconfigmap-handler-" + RandSeq(5)
+	arsSecretName                              = "testsecret-handler-" + RandSeq(5)
+	arsProjectedConfigMapName                  = "testprojectedconfigmap-handler-" + RandSeq(5)
+	arsProjectedSecretName                     = "testprojectedsecret-handler-" + RandSeq(5)
+	arsConfigmapWithInitContainer              = "testconfigmapInitContainerhandler-" + RandSeq(5)
+	arsSecretWithInitContainer                 = "testsecretWithInitContainer-handler-" + RandSeq(5)
+	arsProjectedConfigMapWithInitContainer     = "testProjectedConfigMapWithInitContainer-handler" + RandSeq(5)
+	arsProjectedSecretWithInitContainer        = "testProjectedSecretWithInitContainer-handler" + RandSeq(5)
+	arsConfigmapWithInitEnv                    = "configmapWithInitEnv-" + RandSeq(5)
+	arsSecretWithInitEnv                       = "secretWithInitEnv-handler-" + RandSeq(5)
+	arsConfigmapWithEnvName                    = "testconfigmapWithEnv-handler-" + RandSeq(5)
+	arsConfigmapWithEnvFromName                = "testconfigmapWithEnvFrom-handler-" + RandSeq(5)
+	arsSecretWithEnvName                       = "testsecretWithEnv-handler-" + RandSeq(5)
+	arsSecretWithEnvFromName                   = "testsecretWithEnvFrom-handler-" + RandSeq(5)
+	arsConfigmapWithPodAnnotations             = "testconfigmapPodAnnotations-handler-" + RandSeq(5)
+	arsConfigmapWithBothAnnotations            = "testconfigmapBothAnnotations-handler-" + RandSeq(5)
+	arsConfigmapAnnotated                      = "testconfigmapAnnotated-handler-" + RandSeq(5)
+	arsConfigMapWithNonAnnotatedDeployment     = "testconfigmapNonAnnotatedDeployment-handler-" + RandSeq(5)
+	arsSecretWithSecretAutoAnnotation          = "testsecretwithsecretautoannotationdeployment-handler-" + RandSeq(5)
+	arsConfigmapWithConfigMapAutoAnnotation    = "testconfigmapwithconfigmapautoannotationdeployment-handler-" + RandSeq(5)
+	arsSecretWithExcludeSecretAnnotation       = "testsecretwithsecretexcludeannotationdeployment-handler-" + RandSeq(5)
+	arsConfigmapWithExcludeConfigMapAnnotation = "testconfigmapwithconfigmapexcludeannotationdeployment-handler-" + RandSeq(5)
+	arsConfigmapWithIgnoreAnnotation           = "testconfigmapWithIgnoreAnnotation-handler-" + RandSeq(5)
+	arsSecretWithIgnoreAnnotation              = "testsecretWithIgnoreAnnotation-handler-" + RandSeq(5)
 
-	ersNamespace                               = "test-handler-" + testutil.RandSeq(5)
-	ersConfigmapName                           = "testconfigmap-handler-" + testutil.RandSeq(5)
-	ersSecretName                              = "testsecret-handler-" + testutil.RandSeq(5)
-	ersProjectedConfigMapName                  = "testprojectedconfigmap-handler-" + testutil.RandSeq(5)
-	ersProjectedSecretName                     = "testprojectedsecret-handler-" + testutil.RandSeq(5)
-	ersConfigmapWithInitContainer              = "testconfigmapInitContainerhandler-" + testutil.RandSeq(5)
-	ersSecretWithInitContainer                 = "testsecretWithInitContainer-handler-" + testutil.RandSeq(5)
-	ersProjectedConfigMapWithInitContainer     = "testProjectedConfigMapWithInitContainer-handler" + testutil.RandSeq(5)
-	ersProjectedSecretWithInitContainer        = "testProjectedSecretWithInitContainer-handler" + testutil.RandSeq(5)
-	ersConfigmapWithInitEnv                    = "configmapWithInitEnv-" + testutil.RandSeq(5)
-	ersSecretWithInitEnv                       = "secretWithInitEnv-handler-" + testutil.RandSeq(5)
-	ersConfigmapWithEnvName                    = "testconfigmapWithEnv-handler-" + testutil.RandSeq(5)
-	ersConfigmapWithEnvFromName                = "testconfigmapWithEnvFrom-handler-" + testutil.RandSeq(5)
-	ersSecretWithEnvName                       = "testsecretWithEnv-handler-" + testutil.RandSeq(5)
-	ersSecretWithEnvFromName                   = "testsecretWithEnvFrom-handler-" + testutil.RandSeq(5)
-	ersConfigmapWithPodAnnotations             = "testconfigmapPodAnnotations-handler-" + testutil.RandSeq(5)
-	ersConfigmapWithBothAnnotations            = "testconfigmapBothAnnotations-handler-" + testutil.RandSeq(5)
-	ersConfigmapAnnotated                      = "testconfigmapAnnotated-handler-" + testutil.RandSeq(5)
-	ersSecretWithSecretAutoAnnotation          = "testsecretwithsecretautoannotationdeployment-handler-" + testutil.RandSeq(5)
-	ersConfigmapWithConfigMapAutoAnnotation    = "testconfigmapwithconfigmapautoannotationdeployment-handler-" + testutil.RandSeq(5)
-	ersSecretWithSecretExcludeAnnotation       = "testsecretwithsecretexcludeannotationdeployment-handler-" + testutil.RandSeq(5)
-	ersConfigmapWithConfigMapExcludeAnnotation = "testconfigmapwithconfigmapexcludeannotationdeployment-handler-" + testutil.RandSeq(5)
-	ersConfigmapWithIgnoreAnnotation           = "testconfigmapWithIgnoreAnnotation-handler-" + testutil.RandSeq(5)
-	ersSecretWithIgnoreAnnotation              = "testsecretWithIgnoreAnnotation-handler-" + testutil.RandSeq(5)
+	ersNamespace                               = "test-handler-" + RandSeq(5)
+	ersConfigmapName                           = "testconfigmap-handler-" + RandSeq(5)
+	ersSecretName                              = "testsecret-handler-" + RandSeq(5)
+	ersProjectedConfigMapName                  = "testprojectedconfigmap-handler-" + RandSeq(5)
+	ersProjectedSecretName                     = "testprojectedsecret-handler-" + RandSeq(5)
+	ersConfigmapWithInitContainer              = "testconfigmapInitContainerhandler-" + RandSeq(5)
+	ersSecretWithInitContainer                 = "testsecretWithInitContainer-handler-" + RandSeq(5)
+	ersProjectedConfigMapWithInitContainer     = "testProjectedConfigMapWithInitContainer-handler" + RandSeq(5)
+	ersProjectedSecretWithInitContainer        = "testProjectedSecretWithInitContainer-handler" + RandSeq(5)
+	ersConfigmapWithInitEnv                    = "configmapWithInitEnv-" + RandSeq(5)
+	ersSecretWithInitEnv                       = "secretWithInitEnv-handler-" + RandSeq(5)
+	ersConfigmapWithEnvName                    = "testconfigmapWithEnv-handler-" + RandSeq(5)
+	ersConfigmapWithEnvFromName                = "testconfigmapWithEnvFrom-handler-" + RandSeq(5)
+	ersSecretWithEnvName                       = "testsecretWithEnv-handler-" + RandSeq(5)
+	ersSecretWithEnvFromName                   = "testsecretWithEnvFrom-handler-" + RandSeq(5)
+	ersConfigmapWithPodAnnotations             = "testconfigmapPodAnnotations-handler-" + RandSeq(5)
+	ersConfigmapWithBothAnnotations            = "testconfigmapBothAnnotations-handler-" + RandSeq(5)
+	ersConfigmapAnnotated                      = "testconfigmapAnnotated-handler-" + RandSeq(5)
+	ersSecretWithSecretAutoAnnotation          = "testsecretwithsecretautoannotationdeployment-handler-" + RandSeq(5)
+	ersConfigmapWithConfigMapAutoAnnotation    = "testconfigmapwithconfigmapautoannotationdeployment-handler-" + RandSeq(5)
+	ersSecretWithSecretExcludeAnnotation       = "testsecretwithsecretexcludeannotationdeployment-handler-" + RandSeq(5)
+	ersConfigmapWithConfigMapExcludeAnnotation = "testconfigmapwithconfigmapexcludeannotationdeployment-handler-" + RandSeq(5)
+	ersConfigmapWithIgnoreAnnotation           = "testconfigmapWithIgnoreAnnotation-handler-" + RandSeq(5)
+	ersSecretWithIgnoreAnnotation              = "testsecretWithIgnoreAnnotation-handler-" + RandSeq(5)
 )
+
+var ersSecretWithExcludeSecretAnnotation = corev1.Secret{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "ers-secret-with-exclude",
+		Namespace: "testing",
+		Annotations: map[string]string{
+			"reloader.stakater.com/exclude": "true",
+		},
+	},
+	Data: map[string][]byte{"key": []byte("value")},
+}
+
+func init() {
+	// Initialize random seed
+	rand.Seed(time.Now().UnixNano())
+}
 
 func TestMain(m *testing.M) {
 
 	// Creating namespaces
-	testutil.CreateNamespace(arsNamespace, clients.KubernetesClient)
-	testutil.CreateNamespace(ersNamespace, clients.KubernetesClient)
+	_, _ = testutil.CreateNamespace(clients.KubernetesClient, arsNamespace)
+	_, _ = testutil.CreateNamespace(clients.KubernetesClient, ersNamespace)
 
 	logrus.Infof("Setting up the annotation reload strategy test resources")
 	setupArs()
@@ -1022,14 +1059,14 @@ func setupErs() {
 		logrus.Errorf("Error in Deployment with configmap and with configmap auto annotation: %v", err)
 	}
 
-	// Creating Deployment with secret and with secret exclude annotation
+	// Creating Deployment with secret and exclude secret annotation
 	_, err = testutil.CreateDeploymentWithExcludeAnnotation(clients.KubernetesClient, ersSecretWithSecretExcludeAnnotation, ersNamespace, testutil.SecretResourceType)
 	if err != nil {
 		logrus.Errorf("Error in Deployment with secret and with secret exclude annotation: %v", err)
 	}
 
-	// Creating Deployment with secret and with secret exclude annotation
-	_, err = testutil.CreateDeploymentWithExcludeAnnotation(clients.KubernetesClient, ersConfigmapWithConfigMapExcludeAnnotation, ersNamespace, testutil.ConfigmapResourceType)
+	// Creating Deployment with secret and exclude configmap annotation
+	_, err = testutil.CreateDeploymentWithExcludeAnnotation(clients.KubernetesClient, ersConfigmapWithExcludeConfigMapAnnotation, ersNamespace, testutil.ConfigmapResourceType)
 	if err != nil {
 		logrus.Errorf("Error in Deployment with configmap and with configmap exclude annotation: %v", err)
 	}
@@ -1047,25 +1084,25 @@ func setupErs() {
 	}
 
 	// Creating DaemonSet with configmap in projected volume
-	_, err = testutil.CreateDaemonSet(clients.KubernetesClient, ersProjectedConfigMapName, ersNamespace, true)
+	_, err = testutil.CreateDaemonSet(clients.KubernetesClient, ersNamespace, ersProjectedConfigMapName, true)
 	if err != nil {
 		logrus.Errorf("Error in DaemonSet with configmap creation: %v", err)
 	}
 
 	// Creating DaemonSet with secret in projected volume
-	_, err = testutil.CreateDaemonSet(clients.KubernetesClient, ersProjectedSecretName, ersNamespace, true)
+	_, err = testutil.CreateDaemonSet(clients.KubernetesClient, ersNamespace, ersProjectedSecretName, true)
 	if err != nil {
 		logrus.Errorf("Error in DaemonSet with secret creation: %v", err)
 	}
 
 	// Creating DaemonSet with env var source as configmap
-	_, err = testutil.CreateDaemonSet(clients.KubernetesClient, ersConfigmapWithEnvName, ersNamespace, false)
+	_, err = testutil.CreateDaemonSet(clients.KubernetesClient, ersNamespace, ersConfigmapWithEnvName, false)
 	if err != nil {
 		logrus.Errorf("Error in DaemonSet with configmap as env var source creation: %v", err)
 	}
 
 	// Creating DaemonSet with env var source as secret
-	_, err = testutil.CreateDaemonSet(clients.KubernetesClient, ersSecretWithEnvName, ersNamespace, false)
+	_, err = testutil.CreateDaemonSet(clients.KubernetesClient, ersNamespace, ersSecretWithEnvName, false)
 	if err != nil {
 		logrus.Errorf("Error in DaemonSet with secret configmap as env var source creation: %v", err)
 	}
@@ -1234,16 +1271,16 @@ func teardownErs() {
 		logrus.Errorf("Error while deleting deployment with configmap auto annotation %v", deploymentError)
 	}
 
-	// Deleting Deployment with secret and secret exclude annotation
-	deploymentError = testutil.DeleteDeployment(clients.KubernetesClient, ersNamespace, ersSecretWithSecretExcludeAnnotation)
+	// Deleting Deployment with secret and exclude secret annotation
+	deploymentError = testutil.DeleteDeployment(clients.KubernetesClient, ersNamespace, ersSecretWithExcludeSecretAnnotation)
 	if deploymentError != nil {
-		logrus.Errorf("Error while deleting deployment with secret exclude annotation %v", deploymentError)
+		logrus.Errorf("Error while deleting deployment with secret auto annotation %v", deploymentError)
 	}
 
-	// Deleting Deployment with configmap and configmap exclude annotation
-	deploymentError = testutil.DeleteDeployment(clients.KubernetesClient, ersNamespace, ersConfigmapWithConfigMapExcludeAnnotation)
+	// Deleting Deployment with configmap and exclude configmap annotation
+	deploymentError = testutil.DeleteDeployment(clients.KubernetesClient, ersNamespace, ersConfigmapWithExcludeConfigMapAnnotation)
 	if deploymentError != nil {
-		logrus.Errorf("Error while deleting deployment with configmap exclude annotation %v", deploymentError)
+		logrus.Errorf("Error while deleting deployment with configmap auto annotation %v", deploymentError)
 	}
 
 	// Deleting DaemonSet with configmap
@@ -1410,25 +1447,25 @@ func teardownErs() {
 	// Deleting Secret used with secret auto annotation
 	err = testutil.DeleteSecret(clients.KubernetesClient, ersNamespace, ersSecretWithSecretAutoAnnotation)
 	if err != nil {
-		logrus.Errorf("Error while deleting the secret used with secret auto annotation: %v", err)
+		logrus.Errorf("Error while deleting the secret used with secret auto annotations: %v", err)
 	}
 
 	// Deleting ConfigMap used with configmap auto annotation
 	err = testutil.DeleteConfigMap(clients.KubernetesClient, ersNamespace, ersConfigmapWithConfigMapAutoAnnotation)
 	if err != nil {
-		logrus.Errorf("Error while deleting the configmap used with configmap auto annotation: %v", err)
+		logrus.Errorf("Error while deleting the configmap used with configmap auto annotations: %v", err)
 	}
 
-	// Deleting Secret used with secret exclude annotation
-	err = testutil.DeleteSecret(clients.KubernetesClient, ersNamespace, ersSecretWithSecretExcludeAnnotation)
+	// Deleting Secret used with exclude secret annotation
+	err = testutil.DeleteSecret(clients.KubernetesClient, ersNamespace, ersSecretWithExcludeSecretAnnotation)
 	if err != nil {
-		logrus.Errorf("Error while deleting the secret used with secret exclude annotation: %v", err)
+		logrus.Errorf("Error while deleting the secret used with secret auto annotations: %v", err)
 	}
 
-	// Deleting ConfigMap used with configmap exclude annotation
-	err = testutil.DeleteConfigMap(clients.KubernetesClient, ersNamespace, ersConfigmapWithConfigMapExcludeAnnotation)
+	// Deleting ConfigMap used with exclude configmap annotation
+	err = testutil.DeleteConfigMap(clients.KubernetesClient, ersNamespace, ersConfigmapWithExcludeConfigMapAnnotation)
 	if err != nil {
-		logrus.Errorf("Error while deleting the configmap used with configmap exclude annotation: %v", err)
+		logrus.Errorf("Error while deleting the configmap used with configmap auto annotations: %v", err)
 	}
 
 	// Deleting namespace
@@ -1783,7 +1820,7 @@ func TestRollingUpgradeForDeploymentWithConfigmapViaSearchAnnotationNotMappedUsi
 	}
 
 	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
+	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, deploymentFuncs)
 	if updated {
 		t.Errorf("Deployment was updated unexpectedly")
 	}
@@ -1813,7 +1850,7 @@ func TestRollingUpgradeForDeploymentWithConfigmapInInitContainerUsingArs(t *test
 	}
 
 	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
+	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, deploymentFuncs)
 	if !updated {
 		t.Errorf("Deployment was not updated")
 	}
@@ -1845,7 +1882,7 @@ func TestRollingUpgradeForDeploymentWithConfigmapInProjectVolumeInInitContainerU
 	}
 
 	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
+	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, deploymentFuncs)
 	if !updated {
 		t.Errorf("Deployment was not updated")
 	}
@@ -1877,7 +1914,7 @@ func TestRollingUpgradeForDeploymentWithConfigmapAsEnvVarUsingArs(t *testing.T) 
 	}
 
 	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
+	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, deploymentFuncs)
 	if !updated {
 		t.Errorf("Deployment was not updated")
 	}
@@ -1909,7 +1946,7 @@ func TestRollingUpgradeForDeploymentWithConfigmapAsEnvVarInInitContainerUsingArs
 	}
 
 	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
+	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, deploymentFuncs)
 	if !updated {
 		t.Errorf("Deployment was not updated")
 	}
@@ -1923,1345 +1960,6 @@ func TestRollingUpgradeForDeploymentWithConfigmapAsEnvVarInInitContainerUsingArs
 	}
 
 	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithConfigmapAsEnvVarFromUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, arsNamespace, arsConfigmapWithEnvFromName, "www.stakater.com")
-	config := getConfigWithAnnotations(envVarPostfix, arsConfigmapWithEnvFromName, shaData, options.ReloaderAutoAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with Configmap used as env var")
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithSecretUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.SecretEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.SecretResourceType, arsNamespace, arsSecretName, "dGVzdFVwZGF0ZWRTZWNyZXRFbmNvZGluZ0ZvclJlbG9hZGVy")
-	config := getConfigWithAnnotations(envVarPostfix, arsSecretName, shaData, options.SecretUpdateOnChangeAnnotation, options.SecretReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with Secret")
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithSecretInProjectedVolumeUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.SecretEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.SecretResourceType, arsNamespace, arsProjectedSecretName, "dGVzdFVwZGF0ZWRTZWNyZXRFbmNvZGluZ0ZvclJlbG9hZGVy")
-	config := getConfigWithAnnotations(envVarPostfix, arsProjectedSecretName, shaData, options.SecretUpdateOnChangeAnnotation, options.SecretReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with Secret in projected volume")
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithSecretinInitContainerUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.SecretEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.SecretResourceType, arsNamespace, arsSecretWithInitContainer, "dGVzdFVwZGF0ZWRTZWNyZXRFbmNvZGluZ0ZvclJlbG9hZGVy")
-	config := getConfigWithAnnotations(envVarPostfix, arsSecretWithInitContainer, shaData, options.SecretUpdateOnChangeAnnotation, options.SecretReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with Secret")
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithSecretInProjectedVolumeinInitContainerUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.SecretEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.SecretResourceType, arsNamespace, arsProjectedSecretWithInitContainer, "dGVzdFVwZGF0ZWRTZWNyZXRFbmNvZGluZ0ZvclJlbG9hZGVy")
-	config := getConfigWithAnnotations(envVarPostfix, arsProjectedSecretWithInitContainer, shaData, options.SecretUpdateOnChangeAnnotation, options.SecretReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with Secret in projected volume")
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithSecretAsEnvVarUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.SecretEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.SecretResourceType, arsNamespace, arsSecretWithEnvName, "dGVzdFVwZGF0ZWRTZWNyZXRFbmNvZGluZ0ZvclJlbG9hZGVy")
-	config := getConfigWithAnnotations(envVarPostfix, arsSecretWithEnvName, shaData, options.ReloaderAutoAnnotation, options.SecretReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with Secret")
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithSecretAsEnvVarFromUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.SecretEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.SecretResourceType, arsNamespace, arsSecretWithEnvFromName, "dGVzdFVwZGF0ZWRTZWNyZXRFbmNvZGluZ0ZvclJlbG9hZGVy")
-	config := getConfigWithAnnotations(envVarPostfix, arsSecretWithEnvFromName, shaData, options.ReloaderAutoAnnotation, options.SecretReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with Secret")
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithSecretAsEnvVarInInitContainerUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.SecretEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.SecretResourceType, arsNamespace, arsSecretWithInitEnv, "dGVzdFVwZGF0ZWRTZWNyZXRFbmNvZGluZ0ZvclJlbG9hZGVy")
-	config := getConfigWithAnnotations(envVarPostfix, arsSecretWithInitEnv, shaData, options.ReloaderAutoAnnotation, options.SecretReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with Secret")
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithSecretExcludeAnnotationUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.SecretEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.SecretResourceType, arsNamespace, arsSecretWithExcludeSecretAnnotation, "dGVzdFVwZGF0ZWRTZWNyZXRFbmNvZGluZ0ZvclJlbG9hZGVy")
-	config := getConfigWithAnnotations(envVarPostfix, arsSecretWithExcludeSecretAnnotation, shaData, "", options.SecretReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with Secret")
-	}
-
-	logrus.Infof("Verifying deployment did not update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
-	if updated {
-		t.Errorf("Deployment which had to be exluded was updated")
-	}
-}
-
-func TestRollingUpgradeForDeploymentWithSecretAutoAnnotationUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.SecretEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.SecretResourceType, arsNamespace, arsSecretWithSecretAutoAnnotation, "dGVzdFVwZGF0ZWRTZWNyZXRFbmNvZGluZ0ZvclJlbG9hZGVy")
-	config := getConfigWithAnnotations(envVarPostfix, arsSecretWithSecretAutoAnnotation, shaData, "", options.SecretReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with Secret")
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithExcludeConfigMapAnnotationUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, arsNamespace, arsConfigmapWithExcludeConfigMapAnnotation, "www.facebook.com")
-	config := getConfigWithAnnotations(envVarPostfix, arsConfigmapWithExcludeConfigMapAnnotation, shaData, "", options.ConfigmapReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with exclude ConfigMap")
-	}
-
-	logrus.Infof("Verifying deployment did update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
-	if updated {
-		t.Errorf("Deployment which had to be excluded was updated")
-	}
-}
-
-func TestRollingUpgradeForDeploymentWithConfigMapAutoAnnotationUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, arsNamespace, arsConfigmapWithConfigMapAutoAnnotation, "www.facebook.com")
-	config := getConfigWithAnnotations(envVarPostfix, arsConfigmapWithConfigMapAutoAnnotation, shaData, "", options.ConfigmapReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with ConfigMap")
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDaemonSetWithConfigmapUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, arsNamespace, arsConfigmapName, "www.facebook.com")
-	config := getConfigWithAnnotations(envVarPostfix, arsConfigmapName, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	daemonSetFuncs := GetDaemonSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	itemCalled := 0
-	itemsCalled := 0
-
-	daemonSetFuncs.ItemFunc = func(client kube.Clients, namespace string, name string) (runtime.Object, error) {
-		itemCalled++
-		return callbacks.GetDaemonSetItem(client, namespace, name)
-	}
-	daemonSetFuncs.ItemsFunc = func(client kube.Clients, namespace string) []runtime.Object {
-		itemsCalled++
-		return callbacks.GetDaemonSetItems(client, namespace)
-	}
-
-	err := PerformAction(clients, config, daemonSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for DaemonSet with configmap")
-	}
-
-	logrus.Infof("Verifying daemonSet update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, daemonSetFuncs)
-	if !updated {
-		t.Errorf("DaemonSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	assert.Equal(t, 0, itemCalled, "ItemFunc should not be called")
-	assert.Equal(t, 2, itemsCalled, "ItemsFunc should be called twice")
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, daemonSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDaemonSetWithPatchAndRetryUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, arsNamespace, arsConfigmapName, "www.facebook.com")
-	config := getConfigWithAnnotations(envVarPostfix, arsConfigmapName, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	daemonSetFuncs := GetDaemonSetRollingUpgradeFuncs()
-
-	itemCalled := 0
-	itemsCalled := 0
-
-	daemonSetFuncs.ItemFunc = func(client kube.Clients, namespace string, name string) (runtime.Object, error) {
-		itemCalled++
-		return callbacks.GetDaemonSetItem(client, namespace, name)
-	}
-	daemonSetFuncs.ItemsFunc = func(client kube.Clients, namespace string) []runtime.Object {
-		itemsCalled++
-		return callbacks.GetDaemonSetItems(client, namespace)
-	}
-
-	assert.True(t, daemonSetFuncs.SupportsPatch)
-	assert.NotEmpty(t, daemonSetFuncs.PatchTemplatesFunc().AnnotationTemplate)
-
-	patchCalled := 0
-	daemonSetFuncs.PatchFunc = func(client kube.Clients, namespace string, resource runtime.Object, patchType patchtypes.PatchType, bytes []byte) error {
-		patchCalled++
-		if patchCalled < 2 {
-			return &errors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonConflict}} // simulate conflict
-		}
-		assert.Equal(t, patchtypes.StrategicMergePatchType, patchType)
-		assert.NotEmpty(t, bytes)
-		assert.Contains(t, string(bytes), `{"spec":{"template":{"metadata":{"annotations":{"reloader.stakater.com/last-reloaded-from":`)
-		assert.Contains(t, string(bytes), `\"hash\":\"314a2269170750a974d79f02b5b9ee517de7f280\"`)
-		return nil
-	}
-
-	daemonSetFuncs.UpdateFunc = func(kube.Clients, string, runtime.Object) error {
-		t.Errorf("Update should not be called")
-		return nil
-	}
-
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, daemonSetFuncs, collectors, nil, invokeReloadStrategy)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for DaemonSet with configmap")
-	}
-
-	assert.Equal(t, 1, itemCalled, "ItemFunc should be called once")
-	assert.Equal(t, 1, itemsCalled, "ItemsFunc should be called once")
-	assert.Equal(t, 2, patchCalled, "PatchFunc should be called twice")
-
-	daemonSetFuncs = GetDeploymentRollingUpgradeFuncs()
-	testRollingUpgradeWithPatchAndInvokeDeleteStrategyArs(t, clients, config, daemonSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDaemonSetWithConfigmapInProjectedVolumeUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, arsNamespace, arsProjectedConfigMapName, "www.facebook.com")
-	config := getConfigWithAnnotations(envVarPostfix, arsProjectedConfigMapName, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	daemonSetFuncs := GetDaemonSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, daemonSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for DaemonSet with configmap in projected volume")
-	}
-
-	logrus.Infof("Verifying daemonSet update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, daemonSetFuncs)
-	if !updated {
-		t.Errorf("DaemonSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, daemonSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDaemonSetWithConfigmapAsEnvVarUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, arsNamespace, arsConfigmapWithEnvName, "www.facebook.com")
-	config := getConfigWithAnnotations(envVarPostfix, arsConfigmapWithEnvName, shaData, options.ReloaderAutoAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	daemonSetFuncs := GetDaemonSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, daemonSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for DaemonSet with configmap used as env var")
-	}
-
-	logrus.Infof("Verifying daemonSet update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, daemonSetFuncs)
-	if !updated {
-		t.Errorf("DaemonSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, daemonSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDaemonSetWithSecretUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.SecretEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.SecretResourceType, arsNamespace, arsSecretName, "d3d3LmZhY2Vib29rLmNvbQ==")
-	config := getConfigWithAnnotations(envVarPostfix, arsSecretName, shaData, options.SecretUpdateOnChangeAnnotation, options.SecretReloaderAutoAnnotation)
-	daemonSetFuncs := GetDaemonSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, daemonSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for DaemonSet with secret")
-	}
-
-	logrus.Infof("Verifying daemonSet update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, daemonSetFuncs)
-	if !updated {
-		t.Errorf("DaemonSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, daemonSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDaemonSetWithSecretInProjectedVolumeUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.SecretEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.SecretResourceType, arsNamespace, arsProjectedSecretName, "d3d3LmZhY2Vib29rLmNvbQ==")
-	config := getConfigWithAnnotations(envVarPostfix, arsProjectedSecretName, shaData, options.SecretUpdateOnChangeAnnotation, options.SecretReloaderAutoAnnotation)
-	daemonSetFuncs := GetDaemonSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, daemonSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for DaemonSet with secret in projected volume")
-	}
-
-	logrus.Infof("Verifying daemonSet update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, daemonSetFuncs)
-	if !updated {
-		t.Errorf("DaemonSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, daemonSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForStatefulSetWithConfigmapUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, arsNamespace, arsConfigmapName, "www.twitter.com")
-	config := getConfigWithAnnotations(envVarPostfix, arsConfigmapName, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	statefulSetFuncs := GetStatefulSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	itemCalled := 0
-	itemsCalled := 0
-
-	statefulSetFuncs.ItemFunc = func(client kube.Clients, namespace string, name string) (runtime.Object, error) {
-		itemCalled++
-		return callbacks.GetStatefulSetItem(client, namespace, name)
-	}
-	statefulSetFuncs.ItemsFunc = func(client kube.Clients, namespace string) []runtime.Object {
-		itemsCalled++
-		return callbacks.GetStatefulSetItems(client, namespace)
-	}
-
-	err := PerformAction(clients, config, statefulSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for StatefulSet with configmap")
-	}
-
-	logrus.Infof("Verifying statefulSet update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, statefulSetFuncs)
-	if !updated {
-		t.Errorf("StatefulSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	assert.Equal(t, 0, itemCalled, "ItemFunc should not be called")
-	assert.Equal(t, 2, itemsCalled, "ItemsFunc should be called twice")
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, statefulSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForStatefulSetWithPatchAndRetryUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, arsNamespace, arsConfigmapName, "www.twitter.com")
-	config := getConfigWithAnnotations(envVarPostfix, arsConfigmapName, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	statefulSetFuncs := GetStatefulSetRollingUpgradeFuncs()
-
-	itemCalled := 0
-	itemsCalled := 0
-
-	statefulSetFuncs.ItemFunc = func(client kube.Clients, namespace string, name string) (runtime.Object, error) {
-		itemCalled++
-		return callbacks.GetStatefulSetItem(client, namespace, name)
-	}
-	statefulSetFuncs.ItemsFunc = func(client kube.Clients, namespace string) []runtime.Object {
-		itemsCalled++
-		return callbacks.GetStatefulSetItems(client, namespace)
-	}
-
-	assert.True(t, statefulSetFuncs.SupportsPatch)
-	assert.NotEmpty(t, statefulSetFuncs.PatchTemplatesFunc().AnnotationTemplate)
-
-	patchCalled := 0
-	statefulSetFuncs.PatchFunc = func(client kube.Clients, namespace string, resource runtime.Object, patchType patchtypes.PatchType, bytes []byte) error {
-		patchCalled++
-		if patchCalled < 2 {
-			return &errors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonConflict}} // simulate conflict
-		}
-		assert.Equal(t, patchtypes.StrategicMergePatchType, patchType)
-		assert.NotEmpty(t, bytes)
-		assert.Contains(t, string(bytes), `{"spec":{"template":{"metadata":{"annotations":{"reloader.stakater.com/last-reloaded-from":`)
-		assert.Contains(t, string(bytes), `\"hash\":\"f821414d40d8815fb330763f74a4ff7ab651d4fa\"`)
-		return nil
-	}
-
-	statefulSetFuncs.UpdateFunc = func(kube.Clients, string, runtime.Object) error {
-		t.Errorf("Update should not be called")
-		return nil
-	}
-
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, statefulSetFuncs, collectors, nil, invokeReloadStrategy)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for StatefulSet with configmap")
-	}
-
-	assert.Equal(t, 1, itemCalled, "ItemFunc should be called once")
-	assert.Equal(t, 1, itemsCalled, "ItemsFunc should be called once")
-	assert.Equal(t, 2, patchCalled, "PatchFunc should be called twice")
-
-	statefulSetFuncs = GetDeploymentRollingUpgradeFuncs()
-	testRollingUpgradeWithPatchAndInvokeDeleteStrategyArs(t, clients, config, statefulSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForStatefulSetWithConfigmapInProjectedVolumeUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, arsNamespace, arsProjectedConfigMapName, "www.twitter.com")
-	config := getConfigWithAnnotations(envVarPostfix, arsProjectedConfigMapName, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	statefulSetFuncs := GetStatefulSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, statefulSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for StatefulSet with configmap in projected volume")
-	}
-
-	logrus.Infof("Verifying statefulSet update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, statefulSetFuncs)
-	if !updated {
-		t.Errorf("StatefulSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, statefulSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForStatefulSetWithSecretUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.SecretEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.SecretResourceType, arsNamespace, arsSecretName, "d3d3LnR3aXR0ZXIuY29t")
-	config := getConfigWithAnnotations(envVarPostfix, arsSecretName, shaData, options.SecretUpdateOnChangeAnnotation, options.SecretReloaderAutoAnnotation)
-	statefulSetFuncs := GetStatefulSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, statefulSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for StatefulSet with secret")
-	}
-
-	logrus.Infof("Verifying statefulSet update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, statefulSetFuncs)
-	if !updated {
-		t.Errorf("StatefulSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, statefulSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForStatefulSetWithSecretInProjectedVolumeUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.SecretEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.SecretResourceType, arsNamespace, arsProjectedSecretName, "d3d3LnR3aXR0ZXIuY29t")
-	config := getConfigWithAnnotations(envVarPostfix, arsProjectedSecretName, shaData, options.SecretUpdateOnChangeAnnotation, options.SecretReloaderAutoAnnotation)
-	statefulSetFuncs := GetStatefulSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, statefulSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for StatefulSet with secret in projected volume")
-	}
-
-	logrus.Infof("Verifying statefulSet update")
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, statefulSetFuncs)
-	if !updated {
-		t.Errorf("StatefulSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyArs(t, clients, config, statefulSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithPodAnnotationsUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, arsNamespace, arsConfigmapWithPodAnnotations, "www.stakater.com")
-	config := getConfigWithAnnotations(envVarPostfix, arsConfigmapWithPodAnnotations, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with pod annotations")
-	}
-
-	logrus.Infof("Verifying deployment update")
-	items := deploymentFuncs.ItemsFunc(clients, config.Namespace)
-	var foundPod, foundBoth bool
-	for _, i := range items {
-		accessor, err := meta.Accessor(i)
-		if err != nil {
-			t.Errorf("Error getting accessor for item: %v", err)
-		}
-		name := accessor.GetName()
-		if name == arsConfigmapWithPodAnnotations {
-			annotations := deploymentFuncs.PodAnnotationsFunc(i)
-			updated := testutil.GetResourceSHAFromAnnotation(annotations)
-			if updated != config.SHAValue {
-				t.Errorf("Deployment was not updated")
-			}
-			foundPod = true
-		}
-		if name == arsConfigmapWithBothAnnotations {
-			annotations := deploymentFuncs.PodAnnotationsFunc(i)
-			updated := testutil.GetResourceSHAFromAnnotation(annotations)
-			if updated == config.SHAValue {
-				t.Errorf("Deployment was updated")
-			}
-			foundBoth = true
-		}
-	}
-	if !foundPod {
-		t.Errorf("Deployment with pod annotations was not found")
-	}
-	if !foundBoth {
-		t.Errorf("Deployment with both annotations was not found")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-}
-
-func TestFailedRollingUpgradeUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, arsNamespace, arsConfigmapName, "fail.stakater.com")
-	config := getConfigWithAnnotations(constants.ConfigmapEnvVarPostfix, arsConfigmapName, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	deploymentFuncs.UpdateFunc = func(_ kube.Clients, _ string, _ runtime.Object) error {
-		return fmt.Errorf("error")
-	}
-	deploymentFuncs.PatchFunc = func(kube.Clients, string, runtime.Object, patchtypes.PatchType, []byte) error {
-		return fmt.Errorf("error")
-	}
-	collectors := getCollectors()
-
-	_ = PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelFailed)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "false", "namespace": arsNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-}
-
-func TestIgnoreAnnotationNoReloadUsingArs(t *testing.T) {
-	options.ReloadStrategy = constants.AnnotationsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, arsNamespace, arsConfigmapWithIgnoreAnnotation, "www.stakater.com")
-	config := getConfigWithAnnotations(envVarPostfix, arsConfigmapWithIgnoreAnnotation, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	config.ResourceAnnotations = map[string]string{"reloader.stakater.com/ignore": "true"}
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with Configmap and ignore annotation using ARS")
-	}
-
-	// Ensure deployment is NOT updated
-	updated := testutil.VerifyResourceAnnotationUpdate(clients, config, deploymentFuncs)
-	if updated {
-		t.Errorf("Deployment was updated but should not have been")
-	}
-
-	// Ensure counters remain zero
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 0 {
-		t.Errorf("Reload counter should not have increased")
-	}
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": arsNamespace})) != 0 {
-		t.Errorf("Reload counter by namespace should not have increased")
-	}
-}
-func TestIgnoreAnnotationNoReloadUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapWithIgnoreAnnotation, "www.stakater.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapWithIgnoreAnnotation, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	config.ResourceAnnotations = map[string]string{"reloader.stakater.com/ignore": "true"}
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with Configmap and ignore annotation using ERS")
-	}
-
-	// Ensure deployment is NOT updated
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, deploymentFuncs)
-	if updated {
-		t.Errorf("Deployment was updated but should not have been (ERS)")
-	}
-
-	// Ensure counters remain zero
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 0 {
-		t.Errorf("Reload counter should not have increased (ERS)")
-	}
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 0 {
-		t.Errorf("Reload counter by namespace should not have increased (ERS)")
-	}
-}
-
-func testRollingUpgradeInvokeDeleteStrategyErs(t *testing.T, clients kube.Clients, config util.Config, upgradeFuncs callbacks.RollingUpgradeFuncs, collectors metrics.Collectors, envVarPostfix string) {
-	err := PerformAction(clients, config, upgradeFuncs, collectors, nil, invokeDeleteStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for %s with %s", upgradeFuncs.ResourceType, envVarPostfix)
-	}
-
-	removed := testutil.VerifyResourceEnvVarRemoved(clients, config, envVarPostfix, upgradeFuncs)
-	if !removed {
-		t.Errorf("%s was not updated", upgradeFuncs.ResourceType)
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 2 {
-		t.Errorf("Counter was not increased")
-	}
-}
-
-func testRollingUpgradeWithPatchAndInvokeDeleteStrategyErs(t *testing.T, clients kube.Clients, config util.Config, upgradeFuncs callbacks.RollingUpgradeFuncs, collectors metrics.Collectors, envVarPostfix string) {
-	assert.NotEmpty(t, upgradeFuncs.PatchTemplatesFunc().DeleteEnvVarTemplate)
-
-	err := PerformAction(clients, config, upgradeFuncs, collectors, nil, invokeDeleteStrategy)
-	upgradeFuncs.PatchFunc = func(client kube.Clients, namespace string, resource runtime.Object, patchType patchtypes.PatchType, bytes []byte) error {
-		assert.Equal(t, patchtypes.JSONPatchType, patchType)
-		assert.NotEmpty(t, bytes)
-		return nil
-	}
-	upgradeFuncs.UpdateFunc = func(kube.Clients, string, runtime.Object) error {
-		t.Errorf("Update should not be called")
-		return nil
-	}
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for %s with %s", upgradeFuncs.ResourceType, envVarPostfix)
-	}
-}
-
-func TestRollingUpgradeForDeploymentWithConfigmapUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapName, "www.stakater.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapName, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for %s with %s", deploymentFuncs.ResourceType, envVarPostfix)
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithPatchAndRetryUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapName, "www.stakater.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapName, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-
-	assert.True(t, deploymentFuncs.SupportsPatch)
-	assert.NotEmpty(t, deploymentFuncs.PatchTemplatesFunc().EnvVarTemplate)
-
-	patchCalled := 0
-	deploymentFuncs.PatchFunc = func(client kube.Clients, namespace string, resource runtime.Object, patchType patchtypes.PatchType, bytes []byte) error {
-		patchCalled++
-		if patchCalled < 2 {
-			return &errors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonConflict}} // simulate conflict
-		}
-		assert.Equal(t, patchtypes.StrategicMergePatchType, patchType)
-		assert.NotEmpty(t, bytes)
-		assert.Contains(t, string(bytes), `{"spec":{"template":{"spec":{"containers":[{"name":`)
-		assert.Contains(t, string(bytes), `"value":"3c9a892aeaedc759abc3df9884a37b8be5680382"`)
-		return nil
-	}
-
-	deploymentFuncs.UpdateFunc = func(kube.Clients, string, runtime.Object) error {
-		t.Errorf("Update should not be called")
-		return nil
-	}
-
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for %s with %s", deploymentFuncs.ResourceType, envVarPostfix)
-	}
-
-	assert.Equal(t, 2, patchCalled)
-
-	deploymentFuncs = GetDeploymentRollingUpgradeFuncs()
-	testRollingUpgradeWithPatchAndInvokeDeleteStrategyErs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithConfigmapInProjectedVolumeUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersProjectedConfigMapName, "www.stakater.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersProjectedConfigMapName, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with Configmap in projected volume")
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithConfigmapViaSearchAnnotationUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapAnnotated, "www.stakater.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapAnnotated, shaData, "", options.ConfigmapReloaderAutoAnnotation)
-	config.ResourceAnnotations = map[string]string{"reloader.stakater.com/match": "true"}
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for %s with %s", deploymentFuncs.ResourceType, envVarPostfix)
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithConfigmapViaSearchAnnotationNoTriggersUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapAnnotated, "www.stakater.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapAnnotated, shaData, "", options.ConfigmapReloaderAutoAnnotation)
-	config.ResourceAnnotations = map[string]string{"reloader.stakater.com/match": "false"}
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for %s with %s", deploymentFuncs.ResourceType, envVarPostfix)
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, deploymentFuncs)
-	time.Sleep(5 * time.Second)
-	if updated {
-		t.Errorf("Deployment was updated unexpectedly")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) > 0 {
-		t.Errorf("Counter was increased unexpectedly")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) > 0 {
-		t.Errorf("Counter by namespace was increased unexpectedly")
-	}
-}
-
-func TestRollingUpgradeForDeploymentWithConfigmapViaSearchAnnotationNotMappedUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	deployment, err := testutil.CreateDeploymentWithEnvVarSourceAndAnnotations(
-		clients.KubernetesClient,
-		ersConfigmapAnnotated+"-different",
-		ersNamespace,
-		map[string]string{"reloader.stakater.com/search": "true"},
-	)
-	if err != nil {
-		t.Errorf("Failed to create deployment with search annotation.")
-	}
-	defer func() {
-		_ = clients.KubernetesClient.AppsV1().Deployments(ersNamespace).Delete(context.TODO(), deployment.Name, metav1.DeleteOptions{})
-	}()
-	// defer clients.KubernetesClient.AppsV1().Deployments(namespace).Delete(deployment.Name, &v1.DeleteOptions{})
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapAnnotated, "www.stakater.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapAnnotated, shaData, "", options.ConfigmapReloaderAutoAnnotation)
-	config.ResourceAnnotations = map[string]string{"reloader.stakater.com/match": "false"}
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err = PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for %s with %s", deploymentFuncs.ResourceType, envVarPostfix)
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, deploymentFuncs)
-	if updated {
-		t.Errorf("Deployment was updated unexpectedly")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) > 0 {
-		t.Errorf("Counter was increased unexpectedly")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) > 0 {
-		t.Errorf("Counter by namespace was increased unexpectedly")
-	}
-}
-
-func TestRollingUpgradeForDeploymentWithConfigmapInInitContainerUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapWithInitContainer, "www.stakater.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapWithInitContainer, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for %s with %s", deploymentFuncs.ResourceType, envVarPostfix)
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithConfigmapInProjectVolumeInInitContainerUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersProjectedConfigMapWithInitContainer, "www.stakater.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersProjectedConfigMapWithInitContainer, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with Configmap in projected volume")
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithConfigmapAsEnvVarUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapWithEnvName, "www.stakater.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapWithEnvName, shaData, options.ReloaderAutoAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with Configmap used as env var")
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithConfigmapAsEnvVarInInitContainerUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapWithInitEnv, "www.stakater.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapWithInitEnv, shaData, options.ReloaderAutoAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with Configmap used as env var")
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithConfigmapAsEnvVarFromUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapWithEnvFromName, "www.stakater.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapWithEnvFromName, shaData, options.ReloaderAutoAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with Configmap used as env var")
-	}
-
-	logrus.Infof("Verifying deployment update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, deploymentFuncs)
-	if !updated {
-		t.Errorf("Deployment was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
 }
 
 func TestRollingUpgradeForDeploymentWithSecretUsingErs(t *testing.T) {
@@ -3546,8 +2244,8 @@ func TestRollingUpgradeForDeploymentWithConfigMapExcludeAnnotationUsingErs(t *te
 	options.ReloadStrategy = constants.EnvVarsReloadStrategy
 	envVarPostfix := constants.ConfigmapEnvVarPostfix
 
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapWithConfigMapExcludeAnnotation, "www.facebook.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapWithConfigMapExcludeAnnotation, shaData, "", options.ConfigmapReloaderAutoAnnotation)
+	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapWithExcludeConfigMapAnnotation, "www.facebook.com")
+	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapWithExcludeConfigMapAnnotation, shaData, "", options.ConfigmapReloaderAutoAnnotation)
 	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
 	collectors := getCollectors()
 
@@ -3594,462 +2292,4 @@ func TestRollingUpgradeForDeploymentWithConfigMapAutoAnnotationUsingErs(t *testi
 	}
 
 	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, deploymentFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDaemonSetWithConfigmapUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapName, "www.facebook.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapName, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	daemonSetFuncs := GetDaemonSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, daemonSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for DaemonSet with configmap")
-	}
-
-	logrus.Infof("Verifying daemonSet update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, daemonSetFuncs)
-	if !updated {
-		t.Errorf("DaemonSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, daemonSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDaemonSetWithPatchAndRetryUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapName, "www.facebook.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapName, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	daemonSetFuncs := GetDaemonSetRollingUpgradeFuncs()
-
-	assert.True(t, daemonSetFuncs.SupportsPatch)
-	assert.NotEmpty(t, daemonSetFuncs.PatchTemplatesFunc().EnvVarTemplate)
-
-	patchCalled := 0
-	daemonSetFuncs.PatchFunc = func(client kube.Clients, namespace string, resource runtime.Object, patchType patchtypes.PatchType, bytes []byte) error {
-		patchCalled++
-		if patchCalled < 2 {
-			return &errors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonConflict}} // simulate conflict
-		}
-		assert.Equal(t, patchtypes.StrategicMergePatchType, patchType)
-		assert.NotEmpty(t, bytes)
-		assert.Contains(t, string(bytes), `{"spec":{"template":{"spec":{"containers":[{"name":`)
-		assert.Contains(t, string(bytes), `"value":"314a2269170750a974d79f02b5b9ee517de7f280"`)
-		return nil
-	}
-
-	daemonSetFuncs.UpdateFunc = func(kube.Clients, string, runtime.Object) error {
-		t.Errorf("Update should not be called")
-		return nil
-	}
-
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, daemonSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for DaemonSet with configmap")
-	}
-
-	assert.Equal(t, 2, patchCalled)
-
-	daemonSetFuncs = GetDeploymentRollingUpgradeFuncs()
-	testRollingUpgradeWithPatchAndInvokeDeleteStrategyErs(t, clients, config, daemonSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDaemonSetWithConfigmapInProjectedVolumeUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersProjectedConfigMapName, "www.facebook.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersProjectedConfigMapName, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	daemonSetFuncs := GetDaemonSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, daemonSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for DaemonSet with configmap in projected volume")
-	}
-
-	logrus.Infof("Verifying daemonSet update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, daemonSetFuncs)
-	if !updated {
-		t.Errorf("DaemonSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, daemonSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDaemonSetWithConfigmapAsEnvVarUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapWithEnvName, "www.facebook.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapWithEnvName, shaData, options.ReloaderAutoAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	daemonSetFuncs := GetDaemonSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, daemonSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for DaemonSet with configmap used as env var")
-	}
-
-	logrus.Infof("Verifying daemonSet update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, daemonSetFuncs)
-	if !updated {
-		t.Errorf("DaemonSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, daemonSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDaemonSetWithSecretUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.SecretEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.SecretResourceType, ersNamespace, ersSecretName, "d3d3LmZhY2Vib29rLmNvbQ==")
-	config := getConfigWithAnnotations(envVarPostfix, ersSecretName, shaData, options.SecretUpdateOnChangeAnnotation, options.SecretReloaderAutoAnnotation)
-	daemonSetFuncs := GetDaemonSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, daemonSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for DaemonSet with secret")
-	}
-
-	logrus.Infof("Verifying daemonSet update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, daemonSetFuncs)
-	if !updated {
-		t.Errorf("DaemonSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, daemonSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDaemonSetWithSecretInProjectedVolumeUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.SecretEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.SecretResourceType, ersNamespace, ersProjectedSecretName, "d3d3LmZhY2Vib29rLmNvbQ==")
-	config := getConfigWithAnnotations(envVarPostfix, ersProjectedSecretName, shaData, options.SecretUpdateOnChangeAnnotation, options.SecretReloaderAutoAnnotation)
-	daemonSetFuncs := GetDaemonSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, daemonSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for DaemonSet with secret in projected volume")
-	}
-
-	logrus.Infof("Verifying daemonSet update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, daemonSetFuncs)
-	if !updated {
-		t.Errorf("DaemonSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, daemonSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForStatefulSetWithConfigmapUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapName, "www.twitter.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapName, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	statefulSetFuncs := GetStatefulSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, statefulSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for StatefulSet with configmap")
-	}
-
-	logrus.Infof("Verifying statefulSet update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, statefulSetFuncs)
-	if !updated {
-		t.Errorf("StatefulSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, statefulSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForStatefulSetWithPatchAndRetryUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapName, "www.twitter.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapName, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	statefulSetFuncs := GetStatefulSetRollingUpgradeFuncs()
-
-	assert.True(t, statefulSetFuncs.SupportsPatch)
-	assert.NotEmpty(t, statefulSetFuncs.PatchTemplatesFunc().EnvVarTemplate)
-
-	patchCalled := 0
-	statefulSetFuncs.PatchFunc = func(client kube.Clients, namespace string, resource runtime.Object, patchType patchtypes.PatchType, bytes []byte) error {
-		patchCalled++
-		if patchCalled < 2 {
-			return &errors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonConflict}} // simulate conflict
-		}
-		assert.Equal(t, patchtypes.StrategicMergePatchType, patchType)
-		assert.NotEmpty(t, bytes)
-		assert.Contains(t, string(bytes), `{"spec":{"template":{"spec":{"containers":[{"name":`)
-		assert.Contains(t, string(bytes), `"value":"f821414d40d8815fb330763f74a4ff7ab651d4fa"`)
-		return nil
-	}
-
-	statefulSetFuncs.UpdateFunc = func(kube.Clients, string, runtime.Object) error {
-		t.Errorf("Update should not be called")
-		return nil
-	}
-
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, statefulSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for StatefulSet with configmap")
-	}
-
-	assert.Equal(t, 2, patchCalled)
-
-	statefulSetFuncs = GetDeploymentRollingUpgradeFuncs()
-	testRollingUpgradeWithPatchAndInvokeDeleteStrategyErs(t, clients, config, statefulSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForStatefulSetWithConfigmapInProjectedVolumeUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersProjectedConfigMapName, "www.twitter.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersProjectedConfigMapName, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	statefulSetFuncs := GetStatefulSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, statefulSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for StatefulSet with configmap in projected volume")
-	}
-
-	logrus.Infof("Verifying statefulSet update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, statefulSetFuncs)
-	if !updated {
-		t.Errorf("StatefulSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, statefulSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForStatefulSetWithSecretUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.SecretEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.SecretResourceType, ersNamespace, ersSecretName, "d3d3LnR3aXR0ZXIuY29t")
-	config := getConfigWithAnnotations(envVarPostfix, ersSecretName, shaData, options.SecretUpdateOnChangeAnnotation, options.SecretReloaderAutoAnnotation)
-	statefulSetFuncs := GetStatefulSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, statefulSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for StatefulSet with secret")
-	}
-
-	logrus.Infof("Verifying statefulSet update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, statefulSetFuncs)
-	if !updated {
-		t.Errorf("StatefulSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, statefulSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForStatefulSetWithSecretInProjectedVolumeUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.SecretEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.SecretResourceType, ersNamespace, ersProjectedSecretName, "d3d3LnR3aXR0ZXIuY29t")
-	config := getConfigWithAnnotations(envVarPostfix, ersProjectedSecretName, shaData, options.SecretUpdateOnChangeAnnotation, options.SecretReloaderAutoAnnotation)
-	statefulSetFuncs := GetStatefulSetRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, statefulSetFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for StatefulSet with secret in projected volume")
-	}
-
-	logrus.Infof("Verifying statefulSet update")
-	updated := testutil.VerifyResourceEnvVarUpdate(clients, config, envVarPostfix, statefulSetFuncs)
-	if !updated {
-		t.Errorf("StatefulSet was not updated")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-
-	testRollingUpgradeInvokeDeleteStrategyErs(t, clients, config, statefulSetFuncs, collectors, envVarPostfix)
-}
-
-func TestRollingUpgradeForDeploymentWithPodAnnotationsUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapWithPodAnnotations, "www.stakater.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapWithPodAnnotations, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	collectors := getCollectors()
-
-	err := PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-	time.Sleep(5 * time.Second)
-	if err != nil {
-		t.Errorf("Rolling upgrade failed for Deployment with pod annotations")
-	}
-
-	logrus.Infof("Verifying deployment update")
-	envName := constants.EnvVarPrefix + util.ConvertToEnvVarName(config.ResourceName) + "_" + envVarPostfix
-	items := deploymentFuncs.ItemsFunc(clients, config.Namespace)
-	var foundPod, foundBoth bool
-	for _, i := range items {
-		accessor, err := meta.Accessor(i)
-		if err != nil {
-			t.Errorf("Error getting accessor for item: %v", err)
-		}
-		name := accessor.GetName()
-		if name == ersConfigmapWithPodAnnotations {
-			containers := deploymentFuncs.ContainersFunc(i)
-			updated := testutil.GetResourceSHAFromEnvVar(containers, envName)
-			if updated != config.SHAValue {
-				t.Errorf("Deployment was not updated")
-			}
-			foundPod = true
-		}
-		if name == ersConfigmapWithBothAnnotations {
-			containers := deploymentFuncs.ContainersFunc(i)
-			updated := testutil.GetResourceSHAFromEnvVar(containers, envName)
-			if updated == config.SHAValue {
-				t.Errorf("Deployment was updated")
-			}
-			foundBoth = true
-		}
-	}
-	if !foundPod {
-		t.Errorf("Deployment with pod annotations was not found")
-	}
-	if !foundBoth {
-		t.Errorf("Deployment with both annotations was not found")
-	}
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelSucceeded)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "true", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
-}
-
-func TestFailedRollingUpgradeUsingErs(t *testing.T) {
-	options.ReloadStrategy = constants.EnvVarsReloadStrategy
-	envVarPostfix := constants.ConfigmapEnvVarPostfix
-
-	shaData := testutil.ConvertResourceToSHA(testutil.ConfigmapResourceType, ersNamespace, ersConfigmapName, "fail.stakater.com")
-	config := getConfigWithAnnotations(envVarPostfix, ersConfigmapName, shaData, options.ConfigmapUpdateOnChangeAnnotation, options.ConfigmapReloaderAutoAnnotation)
-	deploymentFuncs := GetDeploymentRollingUpgradeFuncs()
-	deploymentFuncs.UpdateFunc = func(_ kube.Clients, _ string, _ runtime.Object) error {
-		return fmt.Errorf("error")
-	}
-	deploymentFuncs.PatchFunc = func(kube.Clients, string, runtime.Object, patchtypes.PatchType, []byte) error {
-		return fmt.Errorf("error")
-	}
-	collectors := getCollectors()
-
-	_ = PerformAction(clients, config, deploymentFuncs, collectors, nil, invokeReloadStrategy)
-
-	if promtestutil.ToFloat64(collectors.Reloaded.With(labelFailed)) != 1 {
-		t.Errorf("Counter was not increased")
-	}
-
-	if promtestutil.ToFloat64(collectors.ReloadedByNamespace.With(prometheus.Labels{"success": "false", "namespace": ersNamespace})) != 1 {
-		t.Errorf("Counter by namespace was not increased")
-	}
 }

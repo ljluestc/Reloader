@@ -1,0 +1,48 @@
+suite: test rbac
+templates:
+  - clusterrole.yaml
+  - role.yaml
+  - rolebinding.yaml
+tests:
+  - it: should create namespace-scoped Role for leases
+    set:
+      rbac.create: true
+      rbac.enabled: false
+    asserts:
+      - isKind:
+          of: Role
+      - equal:
+          path: metadata.namespace
+          value: RELEASE-NAMESPACE
+      - contains:
+          path: rules
+          content:
+            apiGroups: ["coordination.k8s.io"]
+            resources: ["leases"]
+            verbs: ["get", "create", "update", "delete"]
+
+  - it: should not include lease access in ClusterRole
+    set:
+      rbac.create: true
+    asserts:
+      - isKind:
+          of: ClusterRole
+      - notContains:
+          path: rules
+          content:
+            apiGroups: ["coordination.k8s.io"]
+            resources: ["leases"]
+
+  - it: should bind Role to service account for lease access
+    set:
+      rbac.create: true
+      rbac.enabled: false
+    asserts:
+      - isKind:
+          of: RoleBinding
+      - equal:
+          path: roleRef.name
+          value: RELEASE-NAME-reloader-lease-role
+      - equal:
+          path: subjects[0].name
+          value: RELEASE-NAME-reloader

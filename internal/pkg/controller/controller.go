@@ -9,11 +9,11 @@ import (
 	"github.com/stakater/Reloader/internal/pkg/metrics"
 	"github.com/stakater/Reloader/internal/pkg/options"
 	"github.com/stakater/Reloader/internal/pkg/util"
-	"github.com/stakater/Reloader/pkg/kube"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -81,9 +81,21 @@ func NewController(
 
 	listWatcher := cache.NewFilteredListWatchFromClient(client.CoreV1().RESTClient(), resource, namespace, optionsModifier)
 
+	var resourceType runtime.Object
+	switch resource {
+	case "configmaps":
+		resourceType = &v1.ConfigMap{}
+	case "secrets":
+		resourceType = &v1.Secret{}
+	case "namespaces":
+		resourceType = &v1.Namespace{}
+	default:
+		return nil, fmt.Errorf("unsupported resource type: %s", resource)
+	}
+
 	_, informer := cache.NewInformerWithOptions(cache.InformerOptions{
 		ListerWatcher: listWatcher,
-		ObjectType:    kube.ResourceMap[resource],
+		ObjectType:    resourceType,
 		ResyncPeriod:  0,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    c.Add,
@@ -203,7 +215,7 @@ func (c *Controller) Delete(old interface{}) {
 
 // Run function for controller which handles the queue
 func (c *Controller) Run(threadiness int, stopCh chan struct{}) {
-	defer runtime.HandleCrash()
+	defer utilruntime.HandleCrash()
 
 	// Let the workers stop when we are done
 	defer c.queue.ShutDown()
@@ -212,7 +224,7 @@ func (c *Controller) Run(threadiness int, stopCh chan struct{}) {
 
 	// Wait for all involved caches to be synced, before processing items from the queue is started
 	if !cache.WaitForCacheSync(stopCh, c.informer.HasSynced) {
-		runtime.HandleError(fmt.Errorf("Timed out waiting for caches to sync"))
+		utilruntime.HandleError(fmt.Errorf("Timed out waiting for caches to sync"))
 		return
 	}
 
@@ -276,7 +288,7 @@ func (c *Controller) handleErr(err error, key interface{}) {
 
 	c.queue.Forget(key)
 	// Report to an external entity that, even after several retries, we could not successfully process this key
-	runtime.HandleError(err)
+	utilruntime.HandleError(err)
 	logrus.Errorf("Dropping key out of the queue: %v", err)
 	logrus.Debugf("Dropping the key %q out of the queue: %v", key, err)
 }
