@@ -564,17 +564,19 @@ func DeleteDeploymentOrSecret(client kubernetes.Interface, nameOrObj interface{}
 // DeleteSecretObj handles both string names and Secret objects
 func DeleteSecretObj(client kubernetes.Interface, nameOrObj interface{}) error {
 	var name string
+	var namespace string = "default"
 
 	switch v := nameOrObj.(type) {
 	case string:
 		name = v
 	case *v1.Secret:
 		name = v.Name
+		namespace = v.Namespace
 	default:
 		name = "unknown"
 	}
 
-	return client.CoreV1().Secrets("default").Delete(context.TODO(), name, metav1.DeleteOptions{})
+	return client.CoreV1().Secrets(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 }
 
 // GenerateResourceSHA generates a mock SHA for testing
@@ -922,14 +924,20 @@ func CreateDeploymentWithExcludeAnnotation(client kubernetes.Interface, deployme
 	return deployment, err
 }
 
-// DeleteNamespace deletes namespace for testing
-func DeleteNamespace(namespace string, client kubernetes.Interface) {
-	err := client.CoreV1().Namespaces().Delete(context.TODO(), namespace, metav1.DeleteOptions{})
-	if err != nil {
-		logrus.Fatalf("Failed to delete namespace that was created for testing %v", err)
-	} else {
-		logrus.Infof("Deleting namespace for testing = %s", namespace)
-	}
+// DeleteDeployment deletes a deployment in given namespace and returns the error if any
+func DeleteDeployment(client kubernetes.Interface, namespace string, deploymentName string) error {
+	logrus.Infof("Deleting Deployment")
+	deploymentError := client.AppsV1().Deployments(namespace).Delete(context.TODO(), deploymentName, metav1.DeleteOptions{})
+	time.Sleep(3 * time.Second)
+	return deploymentError
+}
+
+// DeleteDeploymentConfig deletes a deploymentConfig in given namespace and returns the error if any
+func DeleteDeploymentConfig(client appsclient.Interface, namespace string, deploymentConfigName string) error {
+	logrus.Infof("Deleting DeploymentConfig")
+	deploymentConfigError := client.AppsV1().DeploymentConfigs(namespace).Delete(context.TODO(), deploymentConfigName, metav1.DeleteOptions{})
+	time.Sleep(3 * time.Second)
+	return deploymentConfigError
 }
 
 // DeleteDaemonSet creates a daemonset in given namespace and returns the error if any

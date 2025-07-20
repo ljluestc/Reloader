@@ -1,17 +1,5 @@
 package testutil
-package testutil
 
-import "math/rand"
-
-// GenerateRandomSequence generates a random sequence for test resources
-func GenerateRandomSequence(n int) string {
-	const letters = "abcdefghijklmnopqrstuvwxyz"
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letters[i%len(letters)]
-	}
-	return string(b)
-}
 import (
 	"math/rand"
 	"time"

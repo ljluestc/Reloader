@@ -32,7 +32,7 @@ func TestLeadership(t *testing.T) {
 		kube.GetClient = originalGetClient
 
 		// Cleanup test environment
-		testutil.TeardownTestEnvironment()
+		testutil.CleanupTestEnvironment()
 	}()
 
 	// Test NewLeadership function

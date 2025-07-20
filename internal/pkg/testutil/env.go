@@ -1,25 +1,21 @@
 package testutil
-package testutil
 
 import (
-	"os"
 	"github.com/sirupsen/logrus"
+	"os"
 )
 
-// SetupTestEnvironment sets up the test environment by setting necessary environment variables
-func SetupTestEnvironment() {
+// SetupFullTestEnvironment sets up the test environment by setting necessary environment variables
+func SetupFullTestEnvironment() {
 	os.Setenv("KUBERNETES_SERVICE_HOST", "fake-host.example.com")
 	os.Setenv("KUBERNETES_SERVICE_PORT", "443")
 	os.Setenv("TEST_ENV", "true")
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.Info("Setting up test environment")
 }
-import (
-	"os"
-)
 
-// SetupTestEnvironment sets up the test environment by setting necessary environment variables
-func SetupTestEnvironment() {
+// SetupBasicTestEnvironment sets up a minimal test environment with only kubernetes service variables
+func SetupBasicTestEnvironment() {
 	os.Setenv("KUBERNETES_SERVICE_HOST", "fake-host.example.com")
 	os.Setenv("KUBERNETES_SERVICE_PORT", "443")
 }

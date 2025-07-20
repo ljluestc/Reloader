@@ -1,12 +1,5 @@
 package testutil
-package testutil
 
-import (
-	"context"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-)
 
 // UpdateSecret is a flexible function that handles both old and new calling patterns:
 // Old: (secretClient *v1.Secret, namespace, name, key, value string) *v1.Secret
