@@ -255,7 +255,13 @@ You can create your own `kustomization.yaml` and use Reloader’s as a base:
 ```yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+# Reloader
 
+A Kubernetes controller that watches changes in ConfigMaps and Secrets and performs rolling upgrades on Pods.
+
+## Running Tests
+
+To run the tests successfully:
 resources:
   - https://github.com/stakater/Reloader/deployments/kubernetes
 
@@ -370,6 +376,31 @@ Please use the [issue tracker](https://github.com/stakater/Reloader/issues) to r
 1. Run `okteto up` to activate your development container
 1. `make build`
 1. `./Reloader`
+
+#### Running Tests Locally
+
+To run tests locally:
+
+```bash
+# Option 1: Using the test helper script
+chmod +x test_helper.sh
+./test_helper.sh
+
+# Option 2: Manually setting environment variables
+export KUBERNETES_SERVICE_HOST=fake-host.example.com
+export KUBERNETES_SERVICE_PORT=443
+make test
+
+#### Running Tests Locally
+
+To run tests locally:
+
+#### Running Tests Locally
+
+To run tests locally:
+
+```bash
+make test
 
 PRs are welcome. In general, we follow the "fork-and-pull" Git workflow:
 

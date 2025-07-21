@@ -15,7 +15,36 @@ metadata:
 {{- end }}
 {{- if .Values.reloader.matchLabels }}
 {{ tpl (toYaml .Values.reloader.matchLabels) . | indent 4 }}
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - leases
+    verbs:
+      - get
+      - create
+      - update
+      - delete
 {{- end }}
+
+{{- if and .Values.rbac.create (not .Values.rbac.enabled) -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "reloader.fullname" . }}-lease-role
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "reloader.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - leases
+    verbs:
+      - get
+      - create
+      - update
+      - delete
+{{- end -}}
   name: {{ template "reloader-fullname" . }}-role
   namespace: {{ .Values.namespace | default .Release.Namespace }}
 rules:

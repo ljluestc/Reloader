@@ -16,6 +16,24 @@ metadata:
 {{- if .Values.reloader.matchLabels }}
 {{ tpl (toYaml .Values.reloader.matchLabels) . | indent 4 }}
 {{- end }}
+
+{{- if and .Values.rbac.create (not .Values.rbac.enabled) -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "reloader.fullname" . }}-lease-rolebinding
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "reloader.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "reloader.fullname" . }}-lease-role
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "reloader.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end -}}
   name: {{ template "reloader-fullname" . }}-role-binding
   namespace: {{ .Values.namespace | default .Release.Namespace }}
 roleRef:
