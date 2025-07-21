@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"github.com/sirupsen/logrus"
-	"github.com/stakater/Reloader/internal/pkg/annotations"
 	"github.com/stakater/Reloader/internal/pkg/metrics"
 	"github.com/stakater/Reloader/internal/pkg/options"
 
@@ -35,7 +34,7 @@ func (r ResourceCreatedHandler) Handle() error {
 	clients := kube.GetClients()
 
 	// Check if the resource is paused
-	if pauseValue, found := objectMeta.Annotations[annotations.PauseReloaderAnnotation]; found {
+	if pauseValue, found := objectMeta.Annotations[options.PauseReloaderAnnotation]; found {
 		isPaused, err := strconv.ParseBool(pauseValue)
 		if err == nil && isPaused {
 			logrus.Infof("Resource %s/%s is paused, skipping reload", objectMeta.Namespace, objectMeta.Name)
@@ -47,7 +46,7 @@ func (r ResourceCreatedHandler) Handle() error {
 	if objectMeta.GetNamespace() != "" {
 		ns, err := clients.KubernetesClient.CoreV1().Namespaces().Get(context.TODO(), objectMeta.GetNamespace(), metav1.GetOptions{})
 		if err == nil && ns != nil && ns.Annotations != nil {
-			if pauseValue, found := ns.Annotations[annotations.PauseReloaderAnnotation]; found {
+			if pauseValue, found := ns.Annotations[options.PauseReloaderAnnotation]; found {
 				isPaused, err := strconv.ParseBool(pauseValue)
 				if err == nil && isPaused {
 					logrus.Infof("Namespace %s is paused, skipping reload for resource %s", objectMeta.GetNamespace(), objectMeta.Name)
