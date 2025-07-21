@@ -2,6 +2,12 @@ package options
 
 import "github.com/stakater/Reloader/internal/pkg/constants"
 
+// Legacy annotations for backward compatibility
+const (
+	ConfigmapUpdateOnChangeAnnotation = "configmap.reloader.stakater.com/reload"
+	SecretUpdateOnChangeAnnotation    = "secret.reloader.stakater.com/reload"
+)
+
 type ArgoRolloutStrategy int
 
 const (

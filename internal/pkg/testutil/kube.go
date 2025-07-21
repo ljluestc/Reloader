@@ -15,6 +15,7 @@ import (
 	openshiftv1 "github.com/openshift/api/apps/v1"
 	appsclient "github.com/openshift/client-go/apps/clientset/versioned"
 	"github.com/sirupsen/logrus"
+	"github.com/stakater/Reloader/internal/pkg/annotations"
 	"github.com/stakater/Reloader/internal/pkg/callbacks"
 	"github.com/stakater/Reloader/internal/pkg/constants"
 	"github.com/stakater/Reloader/internal/pkg/crypto"
@@ -82,26 +83,26 @@ func getObjectMeta(namespace string, name string, autoReload bool, secretAutoRel
 }
 
 func getAnnotations(name string, autoReload bool, secretAutoReload bool, configmapAutoReload bool, extraAnnotations map[string]string) map[string]string {
-	annotations := make(map[string]string)
+	annots := make(map[string]string)
 	if autoReload {
-		annotations[options.ReloaderAutoAnnotation] = "true"
+		annots[annotations.ReloaderAutoAnnotation] = "true"
 	}
 	if secretAutoReload {
-		annotations[options.SecretReloaderAutoAnnotation] = "true"
+		annots[annotations.SecretReloaderAutoAnnotation] = "true"
 	}
 	if configmapAutoReload {
-		annotations[options.ConfigmapReloaderAutoAnnotation] = "true"
+		annots[annotations.ConfigmapReloaderAutoAnnotation] = "true"
 	}
 
-	if !(len(annotations) > 0) {
-		annotations = map[string]string{
+	if !(len(annots) > 0) {
+		annots = map[string]string{
 			options.ConfigmapUpdateOnChangeAnnotation: name,
 			options.SecretUpdateOnChangeAnnotation:    name}
 	}
 	for k, v := range extraAnnotations {
-		annotations[k] = v
+		annots[k] = v
 	}
-	return annotations
+	return annots
 }
 
 func getEnvVarSources(name string) []v1.EnvFromSource {
@@ -484,6 +485,25 @@ func GetDeploymentWithPodAnnotations(namespace string, deploymentName string, bo
 	return deployment
 }
 
+func GetPausedDeployment(namespace string, deploymentName string) *appsv1.Deployment {
+	replicaset := int32(1)
+	return &appsv1.Deployment{
+		ObjectMeta: getObjectMeta(namespace, deploymentName, false, false, false, map[string]string{
+			annotations.PauseReloaderAnnotation: "true",
+		}),
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"secondLabel": "temp"},
+			},
+			Replicas: &replicaset,
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RollingUpdateDeploymentStrategyType,
+			},
+			Template: getPodTemplateSpecWithVolumes(deploymentName),
+		},
+	}
+}
+
 func GetDeploymentWithTypedAutoAnnotation(namespace string, deploymentName string, resourceType string) *appsv1.Deployment {
 	replicaset := int32(1)
 	var objectMeta metav1.ObjectMeta
@@ -514,9 +534,9 @@ func GetDeploymentWithExcludeAnnotation(namespace string, deploymentName string,
 	annotation := map[string]string{}
 
 	if resourceType == SecretResourceType {
-		annotation[options.SecretExcludeReloaderAnnotation] = deploymentName
+		annotation[annotations.SecretExcludeReloaderAnnotation] = deploymentName
 	} else if resourceType == ConfigmapResourceType {
-		annotation[options.ConfigmapExcludeReloaderAnnotation] = deploymentName
+		annotation[annotations.ConfigmapExcludeReloaderAnnotation] = deploymentName
 	}
 
 	return &appsv1.Deployment{
@@ -1046,12 +1066,12 @@ func VerifyResourceEnvVarUpdate(clients kube.Clients, config util.Config, envVar
 		if err != nil {
 			return false
 		}
-		annotations := accessor.GetAnnotations()
+		annots := accessor.GetAnnotations()
 		// match statefulsets with the correct annotation
-		annotationValue := annotations[config.Annotation]
-		searchAnnotationValue := annotations[options.AutoSearchAnnotation]
-		reloaderEnabledValue := annotations[options.ReloaderAutoAnnotation]
-		typedAutoAnnotationEnabledValue := annotations[config.TypedAutoAnnotation]
+		annotationValue := annots[config.Annotation]
+		searchAnnotationValue := annots[annotations.AutoSearchAnnotation]
+		reloaderEnabledValue := annots[annotations.ReloaderAutoAnnotation]
+		typedAutoAnnotationEnabledValue := annots[config.TypedAutoAnnotation]
 		reloaderEnabled, err := strconv.ParseBool(reloaderEnabledValue)
 		typedAutoAnnotationEnabled, errTyped := strconv.ParseBool(typedAutoAnnotationEnabledValue)
 		matches := false
@@ -1067,7 +1087,7 @@ func VerifyResourceEnvVarUpdate(clients kube.Clients, config util.Config, envVar
 				}
 			}
 		} else if searchAnnotationValue == "true" {
-			if config.ResourceAnnotations[options.SearchMatchAnnotation] == "true" {
+			if config.ResourceAnnotations[annotations.SearchMatchAnnotation] == "true" {
 				matches = true
 			}
 		}
@@ -1093,13 +1113,13 @@ func VerifyResourceEnvVarRemoved(clients kube.Clients, config util.Config, envVa
 			return false
 		}
 
-		annotations := accessor.GetAnnotations()
+		annots := accessor.GetAnnotations()
 		// match statefulsets with the correct annotation
 
-		annotationValue := annotations[config.Annotation]
-		searchAnnotationValue := annotations[options.AutoSearchAnnotation]
-		reloaderEnabledValue := annotations[options.ReloaderAutoAnnotation]
-		typedAutoAnnotationEnabledValue := annotations[config.TypedAutoAnnotation]
+		annotationValue := annots[config.Annotation]
+		searchAnnotationValue := annots[annotations.AutoSearchAnnotation]
+		reloaderEnabledValue := annots[annotations.ReloaderAutoAnnotation]
+		typedAutoAnnotationEnabledValue := annots[config.TypedAutoAnnotation]
 		reloaderEnabled, err := strconv.ParseBool(reloaderEnabledValue)
 		typedAutoAnnotationEnabled, errTyped := strconv.ParseBool(typedAutoAnnotationEnabledValue)
 
@@ -1116,7 +1136,7 @@ func VerifyResourceEnvVarRemoved(clients kube.Clients, config util.Config, envVa
 				}
 			}
 		} else if searchAnnotationValue == "true" {
-			if config.ResourceAnnotations[options.SearchMatchAnnotation] == "true" {
+			if config.ResourceAnnotations[annotations.SearchMatchAnnotation] == "true" {
 				matches = true
 			}
 		}
@@ -1141,12 +1161,12 @@ func VerifyResourceAnnotationUpdate(clients kube.Clients, config util.Config, up
 		if err != nil {
 			return false
 		}
-		annotations := accessor.GetAnnotations()
+		annots := accessor.GetAnnotations()
 		// match statefulsets with the correct annotation
-		annotationValue := annotations[config.Annotation]
-		searchAnnotationValue := annotations[options.AutoSearchAnnotation]
-		reloaderEnabledValue := annotations[options.ReloaderAutoAnnotation]
-		typedAutoAnnotationEnabledValue := annotations[config.TypedAutoAnnotation]
+		annotationValue := annots[config.Annotation]
+		searchAnnotationValue := annots[annotations.AutoSearchAnnotation]
+		reloaderEnabledValue := annots[annotations.ReloaderAutoAnnotation]
+		typedAutoAnnotationEnabledValue := annots[config.TypedAutoAnnotation]
 		reloaderEnabled, _ := strconv.ParseBool(reloaderEnabledValue)
 		typedAutoAnnotationEnabled, _ := strconv.ParseBool(typedAutoAnnotationEnabledValue)
 		matches := false
@@ -1162,7 +1182,7 @@ func VerifyResourceAnnotationUpdate(clients kube.Clients, config util.Config, up
 				}
 			}
 		} else if searchAnnotationValue == "true" {
-			if config.ResourceAnnotations[options.SearchMatchAnnotation] == "true" {
+			if config.ResourceAnnotations[annotations.SearchMatchAnnotation] == "true" {
 				matches = true
 			}
 		}

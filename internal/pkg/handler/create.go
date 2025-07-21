@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/sirupsen/logrus"
+	"github.com/stakater/Reloader/internal/pkg/annotations"
 	"github.com/stakater/Reloader/internal/pkg/metrics"
 	"github.com/stakater/Reloader/internal/pkg/options"
 	"github.com/stakater/Reloader/internal/pkg/util"

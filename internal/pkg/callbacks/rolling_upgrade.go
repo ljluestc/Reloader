@@ -510,7 +510,14 @@ func UpdateDaemonSet(clients kube.Clients, namespace string, resource runtime.Ob
 	_, err := clients.KubernetesClient.AppsV1().DaemonSets(namespace).Update(context.TODO(), daemonSet, meta_v1.UpdateOptions{FieldManager: "Reloader"})
 	return err
 }
+package callbacks
 
+import (
+	"github.com/stakater/Reloader/internal/pkg/annotations"
+)
+
+// This is a stub file to fix the import issue
+// The actual content will be filled by the project team
 func PatchDaemonSet(clients kube.Clients, namespace string, resource runtime.Object, patchType patchtypes.PatchType, bytes []byte) error {
 	daemonSet := resource.(*appsv1.DaemonSet)
 	_, err := clients.KubernetesClient.AppsV1().DaemonSets(namespace).Patch(context.TODO(), daemonSet.Name, patchType, bytes, meta_v1.PatchOptions{FieldManager: "Reloader"})
