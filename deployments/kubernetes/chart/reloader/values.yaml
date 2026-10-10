@@ -68,6 +68,16 @@ reloader:
   # Set to true to expose a prometheus counter of reloads by namespace (this metric may have high cardinality in clusters with many namespaces)
   enableMetricsByNamespace: false
   deployment:
+    # Deployment update strategy. If unset, the Kubernetes default (RollingUpdate) is used.
+    # Use Recreate to avoid surging an old-version pod during upgrades.
+    strategy: {}
+    # type: Recreate
+    #
+    # type: RollingUpdate
+    # rollingUpdate:
+    #   maxSurge: 0
+    #   maxUnavailable: 1
+
     # Specifies the deployment DNS configuration.
     dnsConfig: {}
     # nameservers:

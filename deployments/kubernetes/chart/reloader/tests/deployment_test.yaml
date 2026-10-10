@@ -132,3 +132,38 @@ tests:
     asserts:
       - notExists:
           path: spec.template.spec.schedulerName
+
+  - it: does not set strategy by default
+    asserts:
+      - notExists:
+          path: spec.strategy
+
+  - it: sets Recreate strategy when reloader.deployment.strategy is set
+    set:
+      reloader:
+        deployment:
+          strategy:
+            type: Recreate
+    asserts:
+      - equal:
+          path: spec.strategy
+          value:
+            type: Recreate
+
+  - it: sets RollingUpdate strategy with custom rollingUpdate parameters
+    set:
+      reloader:
+        deployment:
+          strategy:
+            type: RollingUpdate
+            rollingUpdate:
+              maxSurge: 0
+              maxUnavailable: 1
+    asserts:
+      - equal:
+          path: spec.strategy
+          value:
+            type: RollingUpdate
+            rollingUpdate:
+              maxSurge: 0
+              maxUnavailable: 1

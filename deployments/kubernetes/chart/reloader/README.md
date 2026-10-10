@@ -95,6 +95,7 @@ helm uninstall {{RELEASE_NAME}} -n {{NAMESPACE}}
 | `reloader.deployment.schedulerName`             | Set the schedulerName for the pod                                                                                                                           | string | `""`              |
 | `reloader.deployment.volumeMounts`              | Mount volume                                                                                                                                                | array  | `[]`              |
 | `reloader.deployment.volumes`                   | Add volume to a pod                                                                                                                                         | array  | `[]`              |
+| `reloader.deployment.strategy`                  | Deployment update strategy (e.g. `type: Recreate`). Kubernetes default (`RollingUpdate`) is used when unset                                                 | map    | `{}`              |
 
 | `reloader.deployment.dnsConfig`                 | dns configuration for pods                                                                                                                                  | map    | `{}`              |
 ### Other Reloader Parameters
