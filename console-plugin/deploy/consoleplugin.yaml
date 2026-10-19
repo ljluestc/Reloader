@@ -1,0 +1,18 @@
+apiVersion: console.openshift.io/v1
+kind: ConsolePlugin
+metadata:
+  name: reloader-console-plugin
+  labels:
+    app.kubernetes.io/name: reloader-console-plugin
+spec:
+  displayName: Stakater Reloader
+  i18n:
+    loadType: Preload
+  backend:
+    type: Service
+    service:
+      name: reloader-console-plugin
+      # Must match the namespace set in kustomization.yaml.
+      namespace: reloader
+      port: 9443
+      basePath: /

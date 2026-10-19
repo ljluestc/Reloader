@@ -10,6 +10,7 @@ on:
       - '!.markdownlint.yaml'
       - '!.vale.ini'
       - '!deployments/kubernetes/chart/reloader/**'
+      - '!console-plugin/**'
 
 env:
   DOCKER_FILE_PATH: Dockerfile

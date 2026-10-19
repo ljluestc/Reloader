@@ -1,0 +1,61 @@
+{
+  "name": "reloader-console-plugin",
+  "version": "0.0.1",
+  "description": "OpenShift Console dynamic plugin for Stakater Reloader",
+  "private": true,
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stakater/Reloader.git",
+    "directory": "console-plugin"
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && NODE_ENV=production rspack",
+    "build-dev": "npm run clean && rspack",
+    "start": "rspack serve",
+    "typecheck": "tsc --noEmit",
+    "test": "LANG=en_US.UTF-8 jest"
+  },
+  "devDependencies": {
+    "@openshift-console/dynamic-plugin-sdk": "4.23.0",
+    "@openshift-console/dynamic-plugin-sdk-webpack": "4.23.0",
+    "@patternfly/react-core": "^6.6.1",
+    "@patternfly/react-icons": "^6.6.1",
+    "@patternfly/react-table": "^6.6.1",
+    "@rspack/cli": "^2.1.10",
+    "@rspack/core": "^2.1.10",
+    "@rspack/dev-server": "^2.2.0",
+    "@swc/core": "^1.15.47",
+    "@swc/jest": "^0.2.39",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.28",
+    "i18next": "^25.8.18",
+    "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.4.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-i18next": "~16.5.8",
+    "react-router": "~7.18.1",
+    "ts-checker-rspack-plugin": "^1.6.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "consolePlugin": {
+    "name": "reloader-console-plugin",
+    "version": "0.0.1",
+    "displayName": "Stakater Reloader",
+    "description": "Shows which workloads Reloader manages and what last triggered their restart.",
+    "exposedModules": {
+      "ReloaderPage": "./components/ReloaderPage",
+      "WorkloadReloaderTab": "./components/WorkloadReloaderTab"
+    },
+    "dependencies": {
+      "@console/pluginAPI": ">=5.0.0-0 || >=4.23.0-0"
+    }
+  }
+}

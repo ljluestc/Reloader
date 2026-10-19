@@ -458,6 +458,10 @@ These flags allow you to redefine annotation keys used in your workloads or reso
 | `--enable-pprof` | Enables `pprof` for profiling |
 | `--pprof-addr` | Address to start `pprof` server on. Default is `:6060` |
 
+### 7. 🖥️ OpenShift Console Plugin
+
+On OpenShift, the optional [console plugin](console-plugin/README.md) adds a **Workloads → Reloader** page that lists the workloads Reloader manages, and a **Reloader** tab on Deployment, StatefulSet and DaemonSet pages showing their reload triggers and the last reload.
+
 ## Compatibility
 
 Reloader is compatible with Kubernetes >= 1.19

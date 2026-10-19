@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: reloader
+resources:
+  - configmap.yaml
+  - deployment.yaml
+  - service.yaml
+  - consoleplugin.yaml
+images:
+  - name: reloader-console-plugin
+    newName: ghcr.io/stakater/reloader-console-plugin
+    newTag: latest

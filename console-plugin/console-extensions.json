@@ -1,0 +1,45 @@
+[
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": ["/reloader/all-namespaces", "/reloader/ns/:ns"],
+      "component": { "$codeRef": "ReloaderPage" }
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "reloader",
+      "name": "%plugin__reloader-console-plugin~Reloader%",
+      "href": "/reloader",
+      "namespaced": true,
+      "perspective": "admin",
+      "section": "workloads"
+    }
+  },
+  {
+    "type": "console.tab/horizontalNav",
+    "properties": {
+      "model": { "group": "apps", "version": "v1", "kind": "Deployment" },
+      "page": { "name": "%plugin__reloader-console-plugin~Reloader%", "href": "reloader" },
+      "component": { "$codeRef": "WorkloadReloaderTab" }
+    }
+  },
+  {
+    "type": "console.tab/horizontalNav",
+    "properties": {
+      "model": { "group": "apps", "version": "v1", "kind": "StatefulSet" },
+      "page": { "name": "%plugin__reloader-console-plugin~Reloader%", "href": "reloader" },
+      "component": { "$codeRef": "WorkloadReloaderTab" }
+    }
+  },
+  {
+    "type": "console.tab/horizontalNav",
+    "properties": {
+      "model": { "group": "apps", "version": "v1", "kind": "DaemonSet" },
+      "page": { "name": "%plugin__reloader-console-plugin~Reloader%", "href": "reloader" },
+      "component": { "$codeRef": "WorkloadReloaderTab" }
+    }
+  }
+]
